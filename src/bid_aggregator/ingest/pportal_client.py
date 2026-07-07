@@ -18,7 +18,7 @@ import time
 from dataclasses import dataclass, asdict
 from datetime import datetime, timedelta
 from typing import Generator
-from urllib.parse import urljoin, urlencode
+from urllib.parse import urlencode
 
 import httpx
 from bs4 import BeautifulSoup
@@ -135,6 +135,8 @@ class PPortalClient:
         self._client: httpx.Client | None = None
         self._session_initialized = False
         self._csrf_token = ""
+        self.last_total: int = 0
+        self.last_yielded: int = 0
     
     def __enter__(self) -> "PPortalClient":
         self._client = httpx.Client(
@@ -266,20 +268,21 @@ class PPortalClient:
         if self._csrf_token:
             data.append(("_csrf", self._csrf_token))
         
-        # 案件分類（1=公開中の調達案件）
-        data.append(("searchConditionBean.ankenBunrui", "1"))
+        # 案件分類（0=公開中の調達案件）
+        data.append(("searchConditionBean.caseDivision", "0"))
         
         # 分類
-        data.append(("searchConditionBean.bunrui", classification))
+        if classification:
+            data.append(("searchConditionBean.cla", classification))
         
         # 案件名称
-        data.append(("searchConditionBean.ankenMeisho", keyword))
+        data.append(("searchConditionBean.articleNm", keyword))
         
-        # 検索方法（1=類義語含まない）
-        data.append(("searchConditionBean.ankenMeishoKensakuHoho", "1"))
+        # 検索方法（01=類義語含まない）
+        data.append(("searchConditionBean.synonymClassification", "01"))
         
         # 案件番号
-        data.append(("searchConditionBean.ankenBango", ""))
+        data.append(("searchConditionBean.procurementItemNo", ""))
         
         # 隠しフィールド
         data.append(("searchConditionBean.procurementCla", ""))
@@ -339,14 +342,15 @@ class PPortalClient:
         logger.debug(f"HTML length: {len(html)}")
         
         # 総件数を取得（複数のパターンを試す）
-        # パターン1: "○○件中"
+        page_text = soup.get_text(" ", strip=True)
+        # パターン1: "○○件見つかりました"
         count_patterns = [
-            r"(\d+)\s*件",
-            r"件数[：:]\s*(\d+)",
+            r"(\d+)\s*件\s*見つかりました",
             r"(\d+)\s*件中",
+            r"件数[：:]\s*(\d+)",
         ]
         for pattern in count_patterns:
-            match = re.search(pattern, html)
+            match = re.search(pattern, page_text)
             if match:
                 total = int(match.group(1))
                 logger.debug(f"総件数を検出: {total}")
@@ -416,9 +420,6 @@ class PPortalClient:
         # 2: 調達機関
         organization = cells[2].get_text(strip=True) if len(cells) > 2 else ""
         
-        # 3: 所在地
-        location = cells[3].get_text(strip=True) if len(cells) > 3 else ""
-        
         # 6: 調達実施案件公示（日付・リンクを含む）
         category = ""
         publish_start = None
@@ -458,9 +459,6 @@ class PPortalClient:
                 href = link.get("href", "")
                 if href:
                     detail_url = href  # JavaScriptリンクの場合はそのまま保存
-        
-        # 分類は所在地から推測（簡易）
-        classification = ""
         
         publish_end = None
         if len(cells) > 4:
@@ -510,6 +508,7 @@ class PPortalClient:
             publish_start_from=publish_start_from,
             publish_start_to=publish_start_to,
         )
+        self.last_total = total
         
         yielded = 0
         for result in results:
@@ -550,6 +549,14 @@ class PPortalClient:
                 yield result
                 yielded += 1
         
+        self.last_yielded = yielded
+        if total > yielded:
+            logger.warning(
+                "調達ポータル取得が上限に達しました: total=%s, fetched=%s, max_pages=%s",
+                total,
+                yielded,
+                max_pages,
+            )
         logger.info(f"調達ポータル取得完了: {yielded}件")
 
     def get_detail(self, item_id: str) -> "PPortalDetailResult | None":
@@ -930,5 +937,3 @@ if __name__ == "__main__":
             print(f"エラー: {e}")
             import traceback
             traceback.print_exc()
-
-

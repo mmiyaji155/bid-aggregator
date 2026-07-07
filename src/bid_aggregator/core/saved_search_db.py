@@ -7,7 +7,7 @@
 import json
 from datetime import datetime, timezone
 
-from bid_aggregator.core.database import get_connection
+from bid_aggregator.core.database import get_connection, insert_and_get_id
 
 
 def _now_utc() -> str:
@@ -32,7 +32,8 @@ def create_saved_search(
     """保存検索を作成"""
     with get_connection() as conn:
         now = _now_utc()
-        cursor = conn.execute(
+        saved_search_id = insert_and_get_id(
+            conn,
             """
             INSERT INTO saved_searches 
             (name, filters_json, query_ref, order_by, schedule, only_new, enabled, created_at, updated_at)
@@ -51,7 +52,7 @@ def create_saved_search(
             ),
         )
         conn.commit()
-        return cursor.lastrowid or 0
+        return saved_search_id
 
 
 def get_saved_search(name: str) -> dict | None:
@@ -126,7 +127,8 @@ def create_saved_search_run(
     """保存検索の実行履歴を作成"""
     with get_connection() as conn:
         now = _now_utc()
-        cursor = conn.execute(
+        run_id = insert_and_get_id(
+            conn,
             """
             INSERT INTO saved_search_runs 
             (saved_search_id, query_ref, filters_snapshot, run_at, hit_count, status)
@@ -140,7 +142,7 @@ def create_saved_search_run(
             ),
         )
         conn.commit()
-        return cursor.lastrowid or 0
+        return run_id
 
 
 def update_saved_search_run(
@@ -208,7 +210,8 @@ def create_saved_search_hit(
     """保存検索のヒット結果を作成"""
     with get_connection() as conn:
         now = _now_utc()
-        cursor = conn.execute(
+        hit_id = insert_and_get_id(
+            conn,
             """
             INSERT INTO saved_search_hits 
             (saved_search_run_id, item_id, content_hash, matched_at)
@@ -217,7 +220,7 @@ def create_saved_search_hit(
             (run_id, item_id, content_hash, now),
         )
         conn.commit()
-        return cursor.lastrowid or 0
+        return hit_id
 
 
 def get_previous_hit_item_ids(saved_search_id: int) -> set[int]:
@@ -262,7 +265,8 @@ def create_notification(
     """通知履歴を作成"""
     with get_connection() as conn:
         now = _now_utc()
-        cursor = conn.execute(
+        notification_id = insert_and_get_id(
+            conn,
             """
             INSERT INTO saved_search_notifications 
             (saved_search_run_id, channel, recipient, status, attempt_count, last_attempt_at, error_message, dedupe_key)
@@ -271,7 +275,7 @@ def create_notification(
             (run_id, channel, recipient, status, now, error_message, dedupe_key),
         )
         conn.commit()
-        return cursor.lastrowid or 0
+        return notification_id
 
 
 def update_notification_status(

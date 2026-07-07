@@ -28,6 +28,8 @@ def main():
     parser = argparse.ArgumentParser(description="調達ポータルから入札情報を取得")
     parser.add_argument("-k", "--keyword", default="", help="検索キーワード")
     parser.add_argument("--max-pages", type=int, default=10, help="最大取得ページ数")
+    parser.add_argument("--from", dest="publish_start_from", help="公開開始日の開始（YYYY-MM-DD）")
+    parser.add_argument("--to", dest="publish_start_to", help="公開開始日の終了（YYYY-MM-DD）")
     parser.add_argument("--dry-run", action="store_true", help="DB保存・通知をスキップ")
     parser.add_argument("-v", "--verbose", action="store_true", help="詳細ログ")
     
@@ -53,6 +55,8 @@ def main():
     print("調達ポータル取得")
     print("=" * 60)
     print(f"キーワード: '{args.keyword}'")
+    if args.publish_start_from or args.publish_start_to:
+        print(f"公開開始日: {args.publish_start_from or ''} ～ {args.publish_start_to or ''}")
     print(f"最大ページ: {args.max_pages}")
     print(f"ドライラン: {args.dry_run}")
     print(f"Slack通知: {'有効' if args.slack_webhook and not args.no_notify else '無効'}")
@@ -65,6 +69,8 @@ def main():
             result = run_pportal_ingest_with_notify(
                 keyword=args.keyword,
                 max_pages=args.max_pages,
+                publish_start_from=args.publish_start_from,
+                publish_start_to=args.publish_start_to,
                 slack_webhook_url=args.slack_webhook if not args.no_notify else None,
                 email_to=args.email if not args.no_notify else None,
                 dry_run=args.dry_run,
@@ -73,6 +79,8 @@ def main():
             result = run_pportal_ingest(
                 keyword=args.keyword,
                 max_pages=args.max_pages,
+                publish_start_from=args.publish_start_from,
+                publish_start_to=args.publish_start_to,
                 dry_run=args.dry_run,
             )
         

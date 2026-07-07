@@ -59,6 +59,18 @@ python -m bid_aggregator.cli.pportal_ingest -k "AI" --max-pages 5
 bid-cli ingest --source kkj --queries config/queries.yml
 ```
 
+### 期間指定で一括取得（重複なし保存）
+```bash
+# 調達ポータル: 指定期間の全件を日別に取得してDBへ保存
+bid-cli backfill --source pportal --from 2026-05-22 --to 2026-05-24 --days 1
+
+# 調達ポータル: キーワード付き
+bid-cli backfill --source pportal -k "生成AI" --from 2026-05-22 --to 2026-05-24 --days 1
+
+# KKJ: API仕様上、キーワード・機関名・地域コードのいずれかが必要
+bid-cli backfill --source kkj -k "AI" --from 2026-05-22 --to 2026-05-24 --days 1
+```
+
 ### 3. 定期実行（両ソース）
 ```bash
 ./scripts/daily_run.sh --notify
@@ -73,6 +85,10 @@ python -m bid_aggregator.cli.pportal_ingest --dry-run
 
 # キーワード検索
 python -m bid_aggregator.cli.pportal_ingest -k "システム" --max-pages 5
+
+# 公開開始日で絞り込み
+python -m bid_aggregator.cli.pportal_ingest -k "生成AI" \
+  --from 2026-05-22 --to 2026-05-24 --max-pages 1
 
 # 全件取得（10ページ=500件）
 python -m bid_aggregator.cli.pportal_ingest --max-pages 10

@@ -15,6 +15,8 @@
 #   NOTIFY_EMAIL        メール通知先（--notify時に使用、Slack優先）
 #   PPORTAL_KEYWORD     調達ポータル検索キーワード（デフォルト: 空=全件）
 #   PPORTAL_MAX_PAGES   調達ポータル最大ページ数（デフォルト: 10）
+#   PPORTAL_FROM        調達ポータル公開開始日の開始（YYYY-MM-DD、省略可）
+#   PPORTAL_TO          調達ポータル公開開始日の終了（YYYY-MM-DD、省略可）
 #
 # =============================================================================
 
@@ -35,6 +37,8 @@ LOG_FILE="$LOG_DIR/daily_run_$DATE.log"
 # 調達ポータル設定
 PPORTAL_KEYWORD="${PPORTAL_KEYWORD:-}"
 PPORTAL_MAX_PAGES="${PPORTAL_MAX_PAGES:-10}"
+PPORTAL_FROM="${PPORTAL_FROM:-}"
+PPORTAL_TO="${PPORTAL_TO:-}"
 
 # 関数: ログ出力
 log() {
@@ -97,15 +101,25 @@ fi
 
 log "--- 調達ポータル データ取得開始 ---"
 log "キーワード: '${PPORTAL_KEYWORD:-（全件）}', 最大ページ: $PPORTAL_MAX_PAGES"
+if [ -n "$PPORTAL_FROM" ] || [ -n "$PPORTAL_TO" ]; then
+    log "公開開始日: ${PPORTAL_FROM:-} ～ ${PPORTAL_TO:-}"
+fi
 
 # 通知オプションの構築
-PPORTAL_OPTS=""
+PPORTAL_OPTS=()
+PPORTAL_DATE_OPTS=()
+if [ -n "$PPORTAL_FROM" ]; then
+    PPORTAL_DATE_OPTS+=(--from "$PPORTAL_FROM")
+fi
+if [ -n "$PPORTAL_TO" ]; then
+    PPORTAL_DATE_OPTS+=(--to "$PPORTAL_TO")
+fi
 if [ "$1" = "--notify" ]; then
     if [ -n "$SLACK_WEBHOOK_URL" ]; then
-        PPORTAL_OPTS="--slack-webhook $SLACK_WEBHOOK_URL"
+        PPORTAL_OPTS=(--slack-webhook "$SLACK_WEBHOOK_URL")
         log "調達ポータル通知: Slack"
     elif [ -n "$NOTIFY_EMAIL" ]; then
-        PPORTAL_OPTS="--email $NOTIFY_EMAIL"
+        PPORTAL_OPTS=(--email "$NOTIFY_EMAIL")
         log "調達ポータル通知: Email ($NOTIFY_EMAIL)"
     fi
 fi
@@ -114,7 +128,8 @@ fi
 if python -m bid_aggregator.cli.pportal_ingest \
     -k "$PPORTAL_KEYWORD" \
     --max-pages "$PPORTAL_MAX_PAGES" \
-    $PPORTAL_OPTS >> "$LOG_FILE" 2>&1; then
+    "${PPORTAL_DATE_OPTS[@]}" \
+    "${PPORTAL_OPTS[@]}" >> "$LOG_FILE" 2>&1; then
     log "調達ポータル データ取得完了"
 else
     log "WARNING: 調達ポータル取得でエラーが発生しました（処理は継続）"
@@ -178,18 +193,17 @@ if [ "$BID_CLI_AVAILABLE" = true ]; then
     bid-cli db stats >> "$LOG_FILE" 2>&1 || true
 else
     # bid-cliがない場合はPythonで統計を取得
-    python -c "
+python -c "
 from bid_aggregator.core.database import get_connection
-conn = get_connection()
-cursor = conn.cursor()
-cursor.execute('SELECT COUNT(*) FROM items')
-total = cursor.fetchone()[0]
-cursor.execute('SELECT source, COUNT(*) FROM items GROUP BY source')
-by_source = cursor.fetchall()
-print(f'総アイテム数: {total}')
-for source, count in by_source:
-    print(f'  {source}: {count}')
-conn.close()
+with get_connection() as conn:
+    cursor = conn.cursor()
+    cursor.execute('SELECT COUNT(*) FROM items')
+    total = cursor.fetchone()[0]
+    cursor.execute('SELECT source, COUNT(*) FROM items GROUP BY source')
+    by_source = cursor.fetchall()
+    print(f'総アイテム数: {total}')
+    for source, count in by_source:
+        print(f'  {source}: {count}')
 " >> "$LOG_FILE" 2>&1 || true
 fi
 
