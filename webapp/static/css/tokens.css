@@ -1,6 +1,6 @@
-/* tokens.css — 機械生成想定（正本: ops/mya--general/output/gov-bid-app/brand/tokens.json v2.2.0）
+/* tokens.css — 機械生成想定（正本: ops/mya--general/output/gov-bid-app/brand/tokens.json v2.3.0）
    primitive を alias 解決した CSS Custom Properties。UI コードから primitive.color を直接参照しない。
-   v2.2: 白基調 + MYA オレンジ #8D4E00 をアクセント専用（CTA/リンク/選択/★）。薄橙ティント面は全廃。
+   v2.3: MYA ブランドアクセント #FF9A35（ロゴのオレンジバー）を primary に。塗りは #FF9A35+濃色文字（AA 8:1）、テキストアクセントは #AB6218（AA 4.7:1）。白基調・薄橙ティント面禁止は v2.2 から維持。
    形状・タイポ・枠線カード等のデザイン言語 = Udemy 実測由来（8px ボタン / 16px カード / 4px バッジ / weight 400/500/700）。 */
 :root {
   /* semantic.color */
@@ -8,10 +8,11 @@
   --foreground: #1D1B18;
   --card: #FFFFFF;
   --card-foreground: #1D1B18;
-  --primary: #8D4E00;
-  --primary-foreground: #FFFFFF;
+  --primary: #FF9A35;
+  --primary-foreground: #331200;
+  --primary-strong: #AB6218;
   --secondary: #FFFFFF;
-  --secondary-foreground: #8D4E00;
+  --secondary-foreground: #AB6218;
   --muted: #F4F3F0;
   --muted-foreground: #605C55;
   --accent: #F4F3F0;
@@ -21,8 +22,8 @@
   --border: #EAE9E5;
   --border-strong: #DBDAD6;
   --input: #79746C;
-  --ring: #8D4E00;
-  --watch-active: #8D4E00;
+  --ring: #AB6218;
+  --watch-active: #FF9A35;
   --highlight: #F4F3F0;
 
   /* 機能色（4用途限定。UX計画書§8。警告はバッジ形状+残日数の二重符号化で使用 — APP-DESIGN.md §⑥） */

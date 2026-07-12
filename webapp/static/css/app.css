@@ -43,7 +43,11 @@ textarea:focus-visible,
   padding: 0 var(--space-16) var(--space-16);
   font-weight: var(--font-weight-bold);
   font-size: var(--font-size-lg);
-  color: var(--primary);
+  color: var(--foreground); /* ロゴ準拠: 黒ワードマーク + オレンジの下線バー */
+  text-decoration: underline;
+  text-decoration-color: var(--primary);
+  text-decoration-thickness: 3px;
+  text-underline-offset: 6px;
   border-bottom: 1px solid var(--border);
   margin-bottom: var(--space-8);
 }
@@ -64,7 +68,7 @@ textarea:focus-visible,
 .sidebar__link[aria-current="page"] {
   background: var(--muted);
   box-shadow: inset 3px 0 0 var(--primary);
-  color: var(--primary);
+  color: var(--foreground);
   font-weight: var(--font-weight-bold);
 }
 .sidebar__toggle { display: none; }
@@ -197,7 +201,7 @@ textarea.input { height: auto; min-height: 80px; padding: var(--space-8) var(--s
 .stat-card { display: flex; flex-direction: column; gap: var(--space-8); }
 .stat-card__value { font-family: var(--font-mono); font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); }
 .stat-card__label { color: var(--muted-foreground); font-size: var(--font-size-sm); }
-.stat-card__link { color: var(--primary); font-size: var(--font-size-xs); font-weight: var(--font-weight-bold); }
+.stat-card__link { color: var(--primary-strong); font-size: var(--font-size-xs); font-weight: var(--font-weight-bold); }
 .stat-card__link:hover { text-decoration: underline; }
 
 /* 見出し階層: topbar=lg20/medium（ページ最上位）> section-title=base16/bold（画面内h2）> 本文 sm14 */
@@ -219,7 +223,7 @@ table.data-table { width: 100%; border-collapse: collapse; }
 .data-table tbody tr:last-child td { border-bottom: none; }
 .data-table td.num, .data-table th.num { font-family: var(--font-mono); text-align: right; }
 .data-table a.row-link { display: block; color: inherit; font-weight: var(--font-weight-bold); }
-.data-table a.row-link:hover { color: var(--primary); text-decoration: underline; }
+.data-table a.row-link:hover { color: var(--primary-strong); text-decoration: underline; }
 /* 折返し制御: 一覧の compact 密度（行高32px）を守るため、長文セルは truncate + title 属性、複合トークンは nowrap */
 .cell-truncate {
   display: block;
@@ -244,7 +248,7 @@ table.data-table { width: 100%; border-collapse: collapse; }
   padding: var(--space-8) var(--space-12); margin-bottom: var(--space-12); font-size: var(--font-size-xs);
 }
 .pagination { display: flex; align-items: center; gap: var(--space-8); padding: var(--space-12) var(--space-16); font-size: var(--font-size-xs); color: var(--muted-foreground); }
-.pagination a[aria-current="page"] { color: var(--primary); font-weight: var(--font-weight-bold); }
+.pagination a[aria-current="page"] { color: var(--primary-strong); font-weight: var(--font-weight-bold); }
 
 /* ---------------------------------------------------------------- states: skeleton / empty / error */
 .skeleton-row { height: var(--row-height-compact); }
@@ -301,7 +305,7 @@ table.data-table { width: 100%; border-collapse: collapse; }
 .board-card--just-moved { animation: just-moved var(--motion-panel) var(--easing-standard); }
 @keyframes just-moved { from { background: var(--highlight); } to { background: var(--card); } }
 .board-card__title { font-weight: var(--font-weight-bold); font-size: var(--font-size-sm); }
-.board-card__title a:hover { color: var(--primary); text-decoration: underline; }
+.board-card__title a:hover { color: var(--primary-strong); text-decoration: underline; }
 .board-card__meta { display: flex; align-items: center; justify-content: space-between; font-size: var(--font-size-xs); color: var(--muted-foreground); }
 .progress-bar { height: 6px; border-radius: 9999px; background: var(--muted); overflow: hidden; }
 .progress-bar__fill { height: 100%; background: var(--status-progress); }
@@ -311,7 +315,7 @@ table.data-table { width: 100%; border-collapse: collapse; }
 /* ---------------------------------------------------------------- project detail */
 .pd-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-16); flex-wrap: wrap; gap: var(--space-8); }
 .pd-back { font-size: var(--font-size-xs); color: var(--muted-foreground); margin-bottom: var(--space-8); display: inline-block; }
-.pd-back:hover { color: var(--primary); }
+.pd-back:hover { color: var(--primary-strong); }
 .doc-row { display: grid; grid-template-columns: 1fr 140px 120px 120px; gap: var(--space-8); align-items: center; padding: var(--space-8) 0; border-bottom: 1px solid var(--border); }
 .doc-row:last-child { border-bottom: none; }
 .doc-row select.input { height: 32px; }
