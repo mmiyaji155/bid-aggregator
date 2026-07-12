@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import "partials/states.html" as states %}
+{% import "partials/icons.html" as icons %}
 {% block title %}入札管理 — gov-bid{% endblock %}
 {% block page_title %}入札管理{% endblock %}
 {% block content %}
@@ -10,7 +11,7 @@
 
 <div class="toolbar" style="justify-content: space-between;">
   <span></span>
-  <button class="btn btn-primary" type="button" data-dialog-open="quick-add-dialog">＋ 手動で追加</button>
+  <button class="btn btn-primary" type="button" data-dialog-open="quick-add-dialog">{{ icons.icon('plus', 16) }}手動で追加</button>
 </div>
 
 <div id="quick-add-dialog" class="scrim" hidden>
@@ -18,9 +19,9 @@
     <div class="dialog__title" id="qa-title">応札プロジェクトを手動で追加</div>
     <p style="font-size: var(--font-size-xs); color: var(--muted-foreground);">KKJ / p-portal に無い自治体独自案件も管理対象にできます。</p>
     <form method="post" action="/board/quick-add">
-      <div class="field" style="margin-bottom: var(--space-12);"><label for="qa-title-input">案件名</label><input class="input" id="qa-title-input" name="title" required></div>
-      <div class="field" style="margin-bottom: var(--space-12);"><label for="qa-org">発注機関</label><input class="input" id="qa-org" name="org"></div>
-      <div class="field" style="margin-bottom: var(--space-12);"><label for="qa-assignee">担当者</label><input class="input" id="qa-assignee" name="assignee"></div>
+      <div class="field" style="margin-bottom: var(--space-16);"><label for="qa-title-input">案件名</label><input class="input" id="qa-title-input" name="title" required></div>
+      <div class="field" style="margin-bottom: var(--space-16);"><label for="qa-org">発注機関</label><input class="input" id="qa-org" name="org"></div>
+      <div class="field" style="margin-bottom: var(--space-16);"><label for="qa-assignee">担当者</label><input class="input" id="qa-assignee" name="assignee"></div>
       <div class="dialog__actions">
         <button type="button" class="btn btn-ghost" data-dialog-close>キャンセル</button>
         <button type="submit" class="btn btn-primary">追加する</button>
@@ -36,7 +37,7 @@
   {% endfor %}
 </div>
 {% elif not columns or (columns['準備中']|length + columns['提出済み']|length + columns['結果待ち']|length + columns['落札失注']|length) == 0 %}
-  {{ states.empty_state("📋", "応札プロジェクトがありません", "案件を探して「応札する」を選ぶか、手動で追加すると、ここに表示されます。", "案件を探す", "/items") }}
+  {{ states.empty_state('clipboard-list', "応札プロジェクトがありません", "案件を探して「応札する」を選ぶか、手動で追加すると、ここに表示されます。", "案件を探す", "/items") }}
 {% else %}
 
 <div class="board" role="list" aria-label="入札管理ボード">

@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import "partials/states.html" as states %}
+{% import "partials/icons.html" as icons %}
 {% block title %}案件を探す — gov-bid{% endblock %}
 {% block page_title %}案件を探す{% endblock %}
 {% block topbar_meta %}最終取得: 手元データ基準（データ鮮度はスクレイピング運用実態に依存 / 仮説）{% endblock %}
@@ -62,7 +63,7 @@
   {% if category %}<span class="chip">業種: {{ category }}</span>{% endif %}
   {% if region %}<span class="chip">地域: {{ region }}</span>{% endif %}
   {% if deadline %}<span class="chip">締切: {{ '設定あり' if deadline == 'has' else '未設定' }}</span>{% endif %}
-  <a class="chip" href="/items?view={{ view }}">すべてクリア ✕</a>
+  <a class="chip" href="/items?view={{ view }}">すべてクリア {{ icons.icon('x', 12) }}</a>
 </div>
 {% endif %}
 
@@ -98,11 +99,11 @@
       {% elif items|length == 0 %}
         <tr><td colspan="7" style="border-bottom:none;">
           {% if view == 'watching' %}
-            {{ states.empty_state("☆", "ウォッチ中の案件がありません", "案件一覧で気になる案件に☆を付けると、ここに表示されます。", "案件を探す", "/items") }}
+            {{ states.empty_state('star', "ウォッチ中の案件がありません", "案件一覧で気になる案件に☆を付けると、ここに表示されます。", "案件を探す", "/items") }}
           {% elif has_filters %}
-            {{ states.empty_state("🔍", "条件に一致する案件がありません", "フィルタ条件を見直すか、クリアしてもう一度お試しください。", "フィルタをクリア", "/items?view=" + view) }}
+            {{ states.empty_state('search', "条件に一致する案件がありません", "フィルタ条件を見直すか、クリアしてもう一度お試しください。", "フィルタをクリア", "/items?view=" + view) }}
           {% else %}
-            {{ states.empty_state("📭", "新着案件がありません", "現在、登録されている入札・調達案件がありません。", "保存検索を作って新着を待つ", "/saved-searches", note="データ取り込みは bid-cli ingest コマンドで実行できます。") }}
+            {{ states.empty_state('inbox', "新着案件がありません", "現在、登録されている入札・調達案件がありません。", "保存検索を作って新着を待つ", "/saved-searches", note="データ取り込みは bid-cli ingest コマンドで実行できます。") }}
           {% endif %}
         </td></tr>
       {% else %}
@@ -116,7 +117,7 @@
               <button class="watch-star {{ 'is-active' if item.watch_status == 'watching' else '' }}" type="submit"
                 aria-pressed="{{ 'true' if item.watch_status == 'watching' else 'false' }}"
                 aria-label="{{ '案件名 ' + item.title + ' のウォッチを解除' if item.watch_status == 'watching' else '案件名 ' + item.title + ' をウォッチに追加' }}">
-                {{ '★' if item.watch_status == 'watching' else '☆' }}
+                {{ icons.icon('star', 18) }}
               </button>
             </form>
           </td>
@@ -136,8 +137,8 @@
   {% if items and total > items|length %}
   <nav class="pagination" aria-label="ページネーション">
     全 {{ total }} 件中 {{ ((page-1)*20)+1 }}–{{ ((page-1)*20)+items|length }} 件
-    {% if page > 1 %}<a href="?view={{ view }}&q={{ q }}&category={{ category }}&region={{ region }}&deadline={{ deadline }}&order_by={{ order_by }}&page={{ page-1 }}">◀ 前へ</a>{% endif %}
-    {% if page < page_count %}<a href="?view={{ view }}&q={{ q }}&category={{ category }}&region={{ region }}&deadline={{ deadline }}&order_by={{ order_by }}&page={{ page+1 }}">次へ ▶</a>{% endif %}
+    {% if page > 1 %}<a href="?view={{ view }}&q={{ q }}&category={{ category }}&region={{ region }}&deadline={{ deadline }}&order_by={{ order_by }}&page={{ page-1 }}">{{ icons.icon('arrow-left', 14) }}前へ</a>{% endif %}
+    {% if page < page_count %}<a href="?view={{ view }}&q={{ q }}&category={{ category }}&region={{ region }}&deadline={{ deadline }}&order_by={{ order_by }}&page={{ page+1 }}">次へ{{ icons.icon('arrow-right', 14) }}</a>{% endif %}
   </nav>
   {% endif %}
 </div>

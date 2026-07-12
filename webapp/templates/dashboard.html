@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import "partials/states.html" as states %}
+{% import "partials/icons.html" as icons %}
 {% block title %}ダッシュボード — gov-bid{% endblock %}
 {% block page_title %}ダッシュボード{% endblock %}
 {% block content %}
@@ -16,23 +17,23 @@
   <div class="card stat-card">
     <div class="stat-card__label">新着案件（直近3日）</div>
     <div class="stat-card__value">{{ new_items_count }} 件</div>
-    <a class="stat-card__link" href="/items">新着を見る →</a>
+    <a class="stat-card__link" href="/items">新着を見る{{ icons.icon('arrow-right', 14) }}</a>
   </div>
   <div class="card stat-card">
     <div class="stat-card__label">締切間近の応札プロジェクト</div>
     <div class="stat-card__value">{{ deadline_soon|length }} 件</div>
-    <a class="stat-card__link" href="/board">入札管理を見る →</a>
+    <a class="stat-card__link" href="/board">入札管理を見る{{ icons.icon('arrow-right', 14) }}</a>
   </div>
   <div class="card stat-card">
     <div class="stat-card__label">進行中の応札プロジェクト</div>
     <div class="stat-card__value">{{ project_count }} 件</div>
-    <a class="stat-card__link" href="/board">ボードを見る →</a>
+    <a class="stat-card__link" href="/board">ボードを見る{{ icons.icon('arrow-right', 14) }}</a>
   </div>
 </div>
 
 <h2 class="section-title">締切が近い応札プロジェクト</h2>
 {% if deadline_soon|length == 0 %}
-  {{ states.empty_state("📋", "応札プロジェクトがありません", "案件を探して「応札する」を選ぶと、ここに表示されます。", "案件を探す", "/items") }}
+  {{ states.empty_state('clipboard-list', "応札プロジェクトがありません", "案件を探して「応札する」を選ぶと、ここに表示されます。", "案件を探す", "/items") }}
 {% else %}
 <div class="table-wrap">
   <table class="data-table">
@@ -53,7 +54,7 @@
 
 <h2 class="section-title">ウォッチ中の案件</h2>
 {% if watched|length == 0 %}
-  {{ states.empty_state("☆", "ウォッチ中の案件がありません", "案件一覧で気になる案件に☆を付けておきましょう。", "案件を探す", "/items") }}
+  {{ states.empty_state('star', "ウォッチ中の案件がありません", "案件一覧で気になる案件に☆を付けておきましょう。", "案件を探す", "/items") }}
 {% else %}
 <div class="table-wrap">
   <table class="data-table">
@@ -73,11 +74,11 @@
 
 <h2 class="section-title">保存検索の新着</h2>
 {% if saved_searches|length == 0 %}
-  {{ states.empty_state("🔔", "保存検索がまだありません", "よく使う絞り込み条件を保存すると、新着を見逃さず通知できます。", "保存検索を作る", "/saved-searches") }}
+  {{ states.empty_state('bell', "保存検索がまだありません", "よく使う絞り込み条件を保存すると、新着を見逃さず通知できます。", "保存検索を作る", "/saved-searches") }}
 {% else %}
 <ul>
   {% for s in saved_searches %}
-  <li style="padding: var(--space-8) 0; border-bottom: 1px solid var(--border);">「{{ s.name }}」<a href="/items?q={{ (s.filters_json | fromjson).keyword }}">新着を見る →</a></li>
+  <li style="padding: var(--space-8) 0; border-bottom: 1px solid var(--border);">「{{ s.name }}」<a class="stat-card__link" href="/items?q={{ (s.filters_json | fromjson).keyword }}">新着を見る{{ icons.icon('arrow-right', 14) }}</a></li>
   {% endfor %}
 </ul>
 {% endif %}

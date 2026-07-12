@@ -1,17 +1,18 @@
 {% extends "base.html" %}
 {% import "partials/states.html" as states %}
+{% import "partials/icons.html" as icons %}
 {% block title %}応札プロジェクト詳細 — gov-bid{% endblock %}
 {% block page_title %}応札プロジェクト詳細{% endblock %}
 {% block content %}
 
-<a class="pd-back" href="/board">← ボードに戻る</a>
+<a class="pd-back" href="/board">{{ icons.icon('arrow-left', 14) }}ボードに戻る</a>
 
 {% if demo_state == "error" %}
   {{ states.error_banner("応札プロジェクトの取得に失敗しました。") }}
 {% elif demo_state == "loading" %}
   <div class="card"><span class="skeleton" style="width:50%;height:24px;display:block;"></span></div>
 {% elif not project %}
-  {{ states.empty_state("🔍", "応札プロジェクトが見つかりません", "削除されたか、URLが誤っている可能性があります。", "ボードに戻る", "/board") }}
+  {{ states.empty_state('search', "応札プロジェクトが見つかりません", "削除されたか、URLが誤っている可能性があります。", "ボードに戻る", "/board") }}
 {% else %}
 
 <div class="pd-header">
@@ -39,7 +40,7 @@
 <div class="card">
   <h2 class="section-title" style="margin-top:0">書類チェックリスト</h2>
   {% if demo_state == "empty" or documents|length == 0 %}
-    {{ states.empty_state("📄", "書類が未登録です", "必要書類を追加して、進捗を管理しましょう。") }}
+    {{ states.empty_state('file-text', "書類が未登録です", "必要書類を追加して、進捗を管理しましょう。") }}
   {% else %}
   <div>
     {% for doc in documents %}
@@ -58,11 +59,11 @@
     {% endfor %}
   </div>
   {% endif %}
-  <form method="post" action="/board/projects/{{ project.id }}/documents" style="display:flex; gap: var(--space-8); margin-top: var(--space-12); align-items:flex-end;">
+  <form class="add-form" method="post" action="/board/projects/{{ project.id }}/documents">
     <div class="field" style="flex:1;"><label for="doc-name">書類名</label><input class="input" id="doc-name" name="name" required placeholder="例: 入札書"></div>
     <div class="field"><label for="doc-assignee">担当</label><input class="input" id="doc-assignee" name="assignee"></div>
     <div class="field"><label for="doc-due">期限</label><input class="input" type="date" id="doc-due" name="due_date"></div>
-    <button class="btn btn-secondary" type="submit">＋ 書類を追加</button>
+    <button class="btn btn-secondary" type="submit">{{ icons.icon('plus', 16) }}書類を追加</button>
   </form>
 </div>
 
@@ -70,7 +71,7 @@
   <div class="card">
     <h2 class="section-title" style="margin-top:0">スケジュール</h2>
     {% if events|length == 0 %}
-      {{ states.empty_state("🗓", "予定が未登録です", "説明会・質問期限・応札締切を追加できます。") }}
+      {{ states.empty_state('calendar', "予定が未登録です", "説明会・質問期限・応札締切を追加できます。") }}
     {% else %}
     <ul class="timeline">
       {% for e in events %}
@@ -78,7 +79,7 @@
       {% endfor %}
     </ul>
     {% endif %}
-    <form method="post" action="/board/projects/{{ project.id }}/schedule" style="display:flex; gap: var(--space-8); margin-top: var(--space-12); align-items:flex-end;">
+    <form class="add-form" method="post" action="/board/projects/{{ project.id }}/schedule">
       <div class="field"><label for="ev-type">種別</label>
         <select class="input" id="ev-type" name="event_type">
           <option value="説明会">説明会</option>
@@ -96,24 +97,24 @@
     <h2 class="section-title" style="margin-top:0">振り返りメモ</h2>
     {% if project.status in ['落札', '失注'] %}
     <form method="post" action="/board/projects/{{ project.id }}/retrospective">
-      <div class="field" style="margin-bottom: var(--space-12);">
+      <div class="field" style="margin-bottom: var(--space-16);">
         <label for="price">応札価格（円・任意）</label>
         <input class="input" type="number" id="price" name="price" value="{{ project.price or '' }}">
       </div>
-      <div class="field" style="margin-bottom: var(--space-12);">
+      <div class="field" style="margin-bottom: var(--space-16);">
         <label for="retro">勝因 / 敗因</label>
         <textarea class="input" id="retro" name="retrospective">{{ project.retrospective or '' }}</textarea>
       </div>
       <button class="btn btn-primary" type="submit">保存</button>
     </form>
     {% else %}
-      {{ states.empty_state("📝", "結果確定後に記入できます", "ステータスを「落札」または「失注」に更新すると、振り返りメモを記録できます。") }}
+      {{ states.empty_state('pencil', "結果確定後に記入できます", "ステータスを「落札」または「失注」に更新すると、振り返りメモを記録できます。") }}
     {% endif %}
   </div>
 </div>
 
 {% if project.notes %}
-<div class="card" style="margin-top: var(--space-16);">
+<div class="card" style="margin-top: var(--space-24);">
   <h2 class="section-title" style="margin-top:0">応札時の社内メモ</h2>
   <p>{{ project.notes }}</p>
 </div>

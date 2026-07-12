@@ -1,11 +1,12 @@
 {% extends "base.html" %}
 {% import "partials/states.html" as states %}
+{% import "partials/icons.html" as icons %}
 {% block title %}{{ item.title if item else '案件詳細' }} — gov-bid{% endblock %}
 {% block page_title %}案件詳細（応札判断）{% endblock %}
 {% block content_width %}content--narrow{% endblock %}
 {% block content %}
 
-<a class="pd-back" href="/items">← 一覧に戻る</a>
+<a class="pd-back" href="/items">{{ icons.icon('arrow-left', 14) }}一覧に戻る</a>
 
 {% if demo_state == "error" %}
   {{ states.error_banner("案件詳細の取得に失敗しました。") }}
@@ -13,7 +14,7 @@
   <div class="card"><span class="skeleton" style="width:60%;height:24px;display:block;margin-bottom:12px;"></span>
   <span class="skeleton" style="width:100%;height:80px;display:block;"></span></div>
 {% elif not item %}
-  {{ states.empty_state("🔍", "案件が見つかりません", "削除されたか、URLが誤っている可能性があります。", "一覧に戻る", "/items") }}
+  {{ states.empty_state('search', "案件が見つかりません", "削除されたか、URLが誤っている可能性があります。", "一覧に戻る", "/items") }}
 {% else %}
 
 <div class="pd-header">
@@ -21,13 +22,13 @@
   <form method="post" action="/items/{{ item.id }}/watch">
     <input type="hidden" name="next" value="/items/{{ item.id }}">
     <input type="hidden" name="action" value="{{ 'unwatch' if item.watch_status == 'watching' else 'watch' }}">
-    <button class="btn btn-ghost" type="submit" aria-pressed="{{ 'true' if item.watch_status == 'watching' else 'false' }}">
-      {{ '★ ウォッチ中' if item.watch_status == 'watching' else '☆ ウォッチに追加' }}
+    <button class="btn btn-ghost {{ 'watch-btn-active' if item.watch_status == 'watching' else '' }}" type="submit" aria-pressed="{{ 'true' if item.watch_status == 'watching' else 'false' }}">
+      {{ icons.icon('star', 16) }}<span>{{ 'ウォッチ中' if item.watch_status == 'watching' else 'ウォッチに追加' }}</span>
     </button>
   </form>
 </div>
 
-<div class="card" style="margin-bottom: var(--space-16);">
+<div class="card" style="margin-bottom: var(--space-24);">
   <dl class="summary-row">
     <div><dt>発注機関</dt><dd>{{ item.organization_name }}</dd></div>
     <div><dt>種別</dt><dd>{{ item.category or "不明" }}</dd></div>
@@ -64,25 +65,25 @@
 </div>
 
 {% if item.url %}
-<p style="margin-top: var(--space-16);"><a class="btn btn-ghost btn-sm" href="{{ item.url }}" target="_blank" rel="noopener">原本を開く ↗</a></p>
+<p style="margin-top: var(--space-24);"><a class="btn btn-ghost btn-sm" href="{{ item.url }}" target="_blank" rel="noopener">原本を開く {{ icons.icon('external-link', 14) }}</a></p>
 {% endif %}
 
-<div class="card" style="margin-top: var(--space-16);">
+<div class="card" style="margin-top: var(--space-24);">
   <h2 class="section-title" style="margin-top:0">社内メモ・応札</h2>
   {% set overdue = deadline_days is not none and deadline_days < 0 %}
   <form method="post" action="/items/{{ item.id }}/decline" id="decline-form">
     <input type="hidden" name="reason" value="">
   </form>
   <form method="post" action="/items/{{ item.id }}/bid" id="bid-form">
-    <div class="field" style="margin-bottom: var(--space-12);">
+    <div class="field" style="margin-bottom: var(--space-16);">
       <label for="assignee">担当者</label>
       <input class="input" id="assignee" name="assignee" required placeholder="例: 田中">
     </div>
-    <div class="field" style="margin-bottom: var(--space-12);">
+    <div class="field" style="margin-bottom: var(--space-16);">
       <label for="deadline_date">応札締切（未設定の場合は入力してください）</label>
       <input class="input" type="date" id="deadline_date" name="deadline_date" value="{{ item.deadline_at[:10] if item.deadline_at else '' }}">
     </div>
-    <div class="field" style="margin-bottom: var(--space-12);">
+    <div class="field" style="margin-bottom: var(--space-16);">
       <label for="notes">社内メモ</label>
       <textarea class="input" id="notes" name="notes" placeholder="判断理由・共有事項など"></textarea>
     </div>

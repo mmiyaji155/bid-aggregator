@@ -1,6 +1,7 @@
+{% import "partials/icons.html" as icons %}
 {% macro error_banner(message="データの取得に失敗しました。") %}
 <div class="state-error" role="alert">
-  <span aria-hidden="true">⚠</span>
+  {{ icons.icon('alert-triangle', 18) }}
   <div>
     <div class="state-error__title">エラーが発生しました</div>
     <div>{{ message }}</div>
@@ -13,7 +14,7 @@
 
 {% macro empty_state(icon, title, message, cta_label=None, cta_href=None, cta_label2=None, cta_href2=None, note=None) %}
 <div class="state-empty">
-  <div class="state-empty__icon" aria-hidden="true">{{ icon }}</div>
+  <div class="state-empty__icon" aria-hidden="true">{{ icons.icon(icon, 40, 1.5) }}</div>
   <div class="state-empty__title">{{ title }}</div>
   <div>{{ message }}</div>
   {% if cta_label or cta_label2 %}

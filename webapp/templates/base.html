@@ -1,4 +1,4 @@
-<!doctype html>
+{% import "partials/icons.html" as icons %}<!doctype html>
 <html lang="ja">
 <head>
   <meta charset="utf-8">
@@ -15,16 +15,16 @@
     <nav class="sidebar" aria-label="メインナビゲーション">
       <a class="sidebar__brand" href="/dashboard" aria-label="gov-bid ホーム">gov-bid</a>
       <div class="sidebar__nav">
-        <a class="sidebar__link" href="/dashboard" {% if active_nav == 'dashboard' %}aria-current="page"{% endif %}>📊 ダッシュボード</a>
-        <a class="sidebar__link" href="/items" {% if active_nav == 'items' %}aria-current="page"{% endif %}>🔍 案件を探す</a>
-        <a class="sidebar__link" href="/board" {% if active_nav == 'board' %}aria-current="page"{% endif %}>📋 入札管理</a>
-        <a class="sidebar__link" href="/saved-searches" {% if active_nav == 'saved_searches' %}aria-current="page"{% endif %}>🔔 保存検索・通知</a>
+        <a class="sidebar__link" href="/dashboard" {% if active_nav == 'dashboard' %}aria-current="page"{% endif %}>{{ icons.icon('layout-dashboard', 18) }}<span>ダッシュボード</span></a>
+        <a class="sidebar__link" href="/items" {% if active_nav == 'items' %}aria-current="page"{% endif %}>{{ icons.icon('search', 18) }}<span>案件を探す</span></a>
+        <a class="sidebar__link" href="/board" {% if active_nav == 'board' %}aria-current="page"{% endif %}>{{ icons.icon('kanban', 18) }}<span>入札管理</span></a>
+        <a class="sidebar__link" href="/saved-searches" {% if active_nav == 'saved_searches' %}aria-current="page"{% endif %}>{{ icons.icon('bell', 18) }}<span>保存検索・通知</span></a>
       </div>
     </nav>
     <div class="main">
       <header class="topbar">
         <div style="display:flex; align-items:center; gap: var(--space-12)">
-          <button class="sidebar__toggle" data-sidebar-toggle aria-label="メニューを開閉" aria-expanded="false">☰</button>
+          <button class="sidebar__toggle" data-sidebar-toggle aria-label="メニューを開閉" aria-expanded="false">{{ icons.icon('menu', 18) }}</button>
           <span class="topbar__title">{% block page_title %}{% endblock %}</span>
         </div>
         <span class="topbar__meta">{% block topbar_meta %}{% endblock %}</span>

@@ -91,7 +91,7 @@
   --badge-height: 20px; --badge-padding-x: var(--space-8); --badge-radius: var(--radius-badge);
 
   /* component.card */
-  --card-padding: var(--space-16); --card-gap: var(--space-12);
+  --card-padding: var(--space-20); --card-gap: var(--space-12);
 
   /* component.sidebar */
   --sidebar-width: 224px; --sidebar-item-height: 36px;
