@@ -8,12 +8,12 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
-from bid_aggregator.core.database import get_connection, insert_and_get_id
+from bid_aggregator.core.database import get_connection, insert_and_get_id, get_database_backend
 
-WEBAPP_DDL = """
+SQLITE_WEBAPP_DDL = """
 CREATE TABLE IF NOT EXISTS watches (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     item_id INTEGER NOT NULL UNIQUE,
@@ -69,13 +69,70 @@ CREATE INDEX IF NOT EXISTS idx_documents_project ON documents(bid_project_id);
 CREATE INDEX IF NOT EXISTS idx_schedule_events_project ON schedule_events(bid_project_id);
 """
 
+POSTGRES_WEBAPP_DDL = """
+CREATE TABLE IF NOT EXISTS watches (
+    id BIGSERIAL PRIMARY KEY,
+    item_id BIGINT NOT NULL UNIQUE,
+    status TEXT NOT NULL DEFAULT 'watching' CHECK (status IN ('watching', 'declined')),
+    decline_reason TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (item_id) REFERENCES items(id)
+);
+
+CREATE TABLE IF NOT EXISTS bid_projects (
+    id BIGSERIAL PRIMARY KEY,
+    item_id BIGINT,
+    manual_title TEXT,
+    manual_org TEXT,
+    status TEXT NOT NULL DEFAULT '準備中'
+        CHECK (status IN ('準備中', '提出済み', '結果待ち', '落札', '失注')),
+    assignee TEXT,
+    notes TEXT,
+    price INTEGER,
+    retrospective TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (item_id) REFERENCES items(id)
+);
+
+CREATE TABLE IF NOT EXISTS documents (
+    id BIGSERIAL PRIMARY KEY,
+    bid_project_id BIGINT NOT NULL,
+    name TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT '未着手' CHECK (status IN ('未着手', '作成中', '完了')),
+    assignee TEXT,
+    due_date TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (bid_project_id) REFERENCES bid_projects(id)
+);
+
+CREATE TABLE IF NOT EXISTS schedule_events (
+    id BIGSERIAL PRIMARY KEY,
+    bid_project_id BIGINT NOT NULL,
+    event_type TEXT NOT NULL,
+    event_date TEXT NOT NULL,
+    note TEXT,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (bid_project_id) REFERENCES bid_projects(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_watches_item ON watches(item_id);
+CREATE INDEX IF NOT EXISTS idx_bid_projects_status ON bid_projects(status);
+CREATE INDEX IF NOT EXISTS idx_bid_projects_item ON bid_projects(item_id);
+CREATE INDEX IF NOT EXISTS idx_documents_project ON documents(bid_project_id);
+CREATE INDEX IF NOT EXISTS idx_schedule_events_project ON schedule_events(bid_project_id);
+"""
+
 STATUS_ORDER = ["準備中", "提出済み", "結果待ち", "落札", "失注"]
 BOARD_COLUMNS = ["準備中", "提出済み", "結果待ち", "落札失注"]  # 落札/失注は1列にまとめて表示
 
 
 def init_webapp_db() -> None:
+    ddl = POSTGRES_WEBAPP_DDL if get_database_backend() == "postgresql" else SQLITE_WEBAPP_DDL
     with get_connection() as conn:
-        conn.executescript(WEBAPP_DDL)
+        conn.executescript(ddl)
         conn.commit()
 
 
@@ -198,10 +255,11 @@ def list_watched_items(limit: int = 50) -> list[dict]:
 
 
 def count_new_items(days: int = 3) -> int:
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
     with get_connection() as conn:
         cur = conn.execute(
-            "SELECT COUNT(*) AS c FROM items WHERE created_at >= datetime('now', ?)",
-            (f"-{days} days",),
+            "SELECT COUNT(*) AS c FROM items WHERE created_at >= ?",
+            (cutoff,),
         )
         row = cur.fetchone()
         return row[0] if not isinstance(row, dict) else row["c"]

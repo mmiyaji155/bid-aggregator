@@ -10,12 +10,14 @@ APP-DESIGN.md / tokens.json: ops/mya--general/output/gov-bid-app/brand/（正本
 from __future__ import annotations
 
 import json
+import os
+import secrets
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl, quote, urlencode, urlparse, urlunparse
 
 from fastapi import FastAPI, Form, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -26,6 +28,41 @@ BASE_DIR = Path(__file__).parent
 app = FastAPI(title="gov-bid 入札管理アプリ（MVP）")
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+
+
+# ---------------------------------------------------------------- basic auth
+
+
+@app.middleware("http")
+async def basic_auth_middleware(request: Request, call_next):
+    """BASIC_AUTH_USERNAME / BASIC_AUTH_PASSWORD が両方設定されている時だけ Basic 認証を要求する。
+
+    未設定（ローカル開発時など）は認証を素通しする。
+    """
+    username = os.environ.get("BASIC_AUTH_USERNAME")
+    password = os.environ.get("BASIC_AUTH_PASSWORD")
+    if not username or not password:
+        return await call_next(request)
+
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Basic "):
+        import base64
+
+        try:
+            decoded = base64.b64decode(auth_header[len("Basic ") :]).decode("utf-8")
+            supplied_user, _, supplied_pass = decoded.partition(":")
+        except Exception:  # noqa: BLE001
+            supplied_user, supplied_pass = "", ""
+        if secrets.compare_digest(supplied_user, username) and secrets.compare_digest(
+            supplied_pass, password
+        ):
+            return await call_next(request)
+
+    return Response(
+        content="Unauthorized",
+        status_code=401,
+        headers={"WWW-Authenticate": 'Basic realm="gov-bid"'},
+    )
 
 
 @app.on_event("startup")
