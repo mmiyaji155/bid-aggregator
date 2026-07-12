@@ -13,7 +13,7 @@
 <body>
   <div class="app-shell">
     <nav class="sidebar" aria-label="メインナビゲーション">
-      <div class="sidebar__brand">gov-bid</div>
+      <a class="sidebar__brand" href="/dashboard" aria-label="gov-bid ホーム">gov-bid</a>
       <div class="sidebar__nav">
         <a class="sidebar__link" href="/dashboard" {% if active_nav == 'dashboard' %}aria-current="page"{% endif %}>📊 ダッシュボード</a>
         <a class="sidebar__link" href="/items" {% if active_nav == 'items' %}aria-current="page"{% endif %}>🔍 案件を探す</a>

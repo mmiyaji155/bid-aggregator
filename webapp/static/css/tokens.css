@@ -1,29 +1,29 @@
-/* tokens.css — 機械生成想定（正本: ops/mya--general/output/gov-bid-app/brand/tokens.json v2.1.0）
+/* tokens.css — 機械生成想定（正本: ops/mya--general/output/gov-bid-app/brand/tokens.json v2.2.0）
    primitive を alias 解決した CSS Custom Properties。UI コードから primitive.color を直接参照しない。
-   v2.1: 色 = MYA ブランド（orange #FF9A35 tone70 アンカー M3 パレット + 暖色ニュートラル）、
+   v2.2: 白基調 + MYA オレンジ #8D4E00 をアクセント専用（CTA/リンク/選択/★）。薄橙ティント面は全廃。
    形状・タイポ・枠線カード等のデザイン言語 = Udemy 実測由来（8px ボタン / 16px カード / 4px バッジ / weight 400/500/700）。 */
 :root {
   /* semantic.color */
-  --background: #FFF8EF;
+  --background: #FFFFFF;
   --foreground: #1D1B18;
   --card: #FFFFFF;
   --card-foreground: #1D1B18;
   --primary: #8D4E00;
   --primary-foreground: #FFFFFF;
-  --secondary: #FFDCC2;
-  --secondary-foreground: #331200;
-  --muted: #F3EBE1;
+  --secondary: #FFFFFF;
+  --secondary-foreground: #8D4E00;
+  --muted: #F4F3F0;
   --muted-foreground: #605C55;
-  --accent: #F3EBE1;
+  --accent: #F4F3F0;
   --accent-foreground: #1D1B18;
   --destructive: #BA1A1A;
   --destructive-foreground: #FFFFFF;
-  --border: #EDE5DB;
-  --border-strong: #DED7CD;
+  --border: #EAE9E5;
+  --border-strong: #DBDAD6;
   --input: #79746C;
   --ring: #8D4E00;
   --watch-active: #8D4E00;
-  --highlight: #FFEDE1;
+  --highlight: #F4F3F0;
 
   /* 機能色（4用途限定。UX計画書§8。警告はバッジ形状+残日数の二重符号化で使用 — APP-DESIGN.md §⑥） */
   --deadline-warning: #8A5A00;

@@ -60,9 +60,11 @@ textarea:focus-visible,
   transition: background-color var(--motion-feedback) var(--easing-standard);
 }
 .sidebar__link:hover { background: var(--accent); }
+/* v2.2: 選択状態はティント面でなく「オレンジのインジケータ + 太字」で示す（オレンジ=アクセント専用） */
 .sidebar__link[aria-current="page"] {
-  background: var(--secondary);
-  color: var(--secondary-foreground);
+  background: var(--muted);
+  box-shadow: inset 3px 0 0 var(--primary);
+  color: var(--primary);
   font-weight: var(--font-weight-bold);
 }
 .sidebar__toggle { display: none; }
@@ -105,8 +107,9 @@ textarea:focus-visible,
 }
 .btn-primary { background: var(--primary); color: var(--primary-foreground); }
 .btn-primary:hover { background: var(--primary); opacity: 0.92; }
-.btn-secondary { background: var(--secondary); color: var(--secondary-foreground); }
-.btn-secondary:hover { opacity: 0.9; }
+/* v2.2: セカンダリはピーチ面を廃止し、白地 + オレンジ枠線のアウトライン型（Udemy の Outline ボタン様式） */
+.btn-secondary { background: var(--secondary); color: var(--secondary-foreground); border-color: var(--primary); }
+.btn-secondary:hover { background: var(--muted); }
 .btn-ghost { background: transparent; color: var(--foreground); border-color: var(--border); }
 .btn-ghost:hover { background: var(--accent); }
 .btn-destructive { background: var(--card); color: var(--destructive); border-color: var(--destructive); }
@@ -192,16 +195,17 @@ textarea.input { height: auto; min-height: 80px; padding: var(--space-8) var(--s
 }
 .card-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--card-gap); margin-bottom: var(--space-24); }
 .stat-card { display: flex; flex-direction: column; gap: var(--space-8); }
-.stat-card__value { font-family: var(--font-mono); font-size: var(--font-size-2xl); font-weight: var(--font-weight-bold); }
+.stat-card__value { font-family: var(--font-mono); font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); }
 .stat-card__label { color: var(--muted-foreground); font-size: var(--font-size-sm); }
 .stat-card__link { color: var(--primary); font-size: var(--font-size-xs); font-weight: var(--font-weight-bold); }
 .stat-card__link:hover { text-decoration: underline; }
 
-.section-title { font-size: var(--font-size-lg); font-weight: var(--font-weight-medium); margin: var(--space-24) 0 var(--space-12); }
+/* 見出し階層: topbar=lg20/medium（ページ最上位）> section-title=base16/bold（画面内h2）> 本文 sm14 */
+.section-title { font-size: var(--font-size-base); font-weight: var(--font-weight-bold); margin: var(--space-24) 0 var(--space-12); }
 .section-title:first-child { margin-top: 0; }
 
 /* ---------------------------------------------------------------- table */
-.table-wrap { border: 1px solid var(--border); border-radius: var(--radius-surface); overflow: hidden; background: var(--card); }
+.table-wrap { border: 1px solid var(--border); border-radius: var(--radius-surface); overflow-x: auto; background: var(--card); }
 table.data-table { width: 100%; border-collapse: collapse; }
 .data-table th, .data-table td {
   padding: 0 var(--cell-padding-x);
@@ -216,8 +220,19 @@ table.data-table { width: 100%; border-collapse: collapse; }
 .data-table td.num, .data-table th.num { font-family: var(--font-mono); text-align: right; }
 .data-table a.row-link { display: block; color: inherit; font-weight: var(--font-weight-bold); }
 .data-table a.row-link:hover { color: var(--primary); text-decoration: underline; }
+/* 折返し制御: 一覧の compact 密度（行高32px）を守るため、長文セルは truncate + title 属性、複合トークンは nowrap */
+.cell-truncate {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.data-table td.col-title  { max-width: 320px; }
+.data-table td.col-org    { max-width: 180px; }
+.data-table td.col-region { white-space: nowrap; }
 .watch-star {
-  background: none; border: none; cursor: pointer; font-size: 18px; line-height: 1;
+  background: none; border: none; cursor: pointer; font-size: var(--font-size-lg); line-height: 1;
   color: var(--muted-foreground); padding: var(--space-4);
   border-radius: var(--radius-interactive);
 }
@@ -359,5 +374,9 @@ table.data-table { width: 100%; border-collapse: collapse; }
   .data-table td { border-bottom: none; padding: var(--space-4) 0; }
   .data-table td[data-label]::before {
     content: attr(data-label); display: block; font-size: var(--font-size-xs); color: var(--muted-foreground);
+  }
+  /* カード化後は折返し表示に戻す（truncate はデスクトップの密度維持用） */
+  .cell-truncate, .data-table td.col-title, .data-table td.col-org, .data-table td.col-region {
+    white-space: normal; max-width: none; overflow: visible; text-overflow: clip;
   }
 }

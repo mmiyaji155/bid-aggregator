@@ -40,7 +40,7 @@
     <tbody>
       {% for p in deadline_soon %}
       <tr>
-        <td data-label="案件名"><a class="row-link" href="/board/projects/{{ p.id }}">{{ p.item_title or p.manual_title }}</a></td>
+        <td data-label="案件名" class="col-title"><a class="row-link cell-truncate" href="/board/projects/{{ p.id }}" title="{{ p.item_title or p.manual_title }}">{{ p.item_title or p.manual_title }}</a></td>
         <td data-label="締切" class="num">{% set b = p.deadline | deadline_badge %}<span class="badge {{ b.css }}">{{ b.label }}</span></td>
         <td data-label="担当">{{ p.assignee or "未設定" }}</td>
         <td data-label="進捗" class="num">{{ p.progress_pct }}%</td>
@@ -61,8 +61,8 @@
     <tbody>
       {% for item in watched %}
       <tr>
-        <td data-label="案件名"><a class="row-link" href="/items/{{ item.id }}">{{ item.title }}</a></td>
-        <td data-label="発注機関">{{ item.organization_name }}</td>
+        <td data-label="案件名" class="col-title"><a class="row-link cell-truncate" href="/items/{{ item.id }}" title="{{ item.title }}">{{ item.title }}</a></td>
+        <td data-label="発注機関" class="col-org"><span class="cell-truncate" title="{{ item.organization_name }}">{{ item.organization_name }}</span></td>
         <td data-label="締切" class="num">{% set b = item.deadline_at | deadline_badge %}<span class="badge {{ b.css }}">{{ b.label }}</span></td>
       </tr>
       {% endfor %}
