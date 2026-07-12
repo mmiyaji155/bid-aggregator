@@ -100,3 +100,5 @@ pportal_debug.html
 # OS files
 .DS_Store
 Thumbs.db
+.vercel
+.env*
