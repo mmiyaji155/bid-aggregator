@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% import "partials/states.html" as states %}
+{% block title %}案件を探す — gov-bid{% endblock %}
+{% block page_title %}案件を探す{% endblock %}
+{% block topbar_meta %}最終取得: 手元データ基準（データ鮮度はスクレイピング運用実態に依存 / 仮説）{% endblock %}
+{% block content %}
+
+{% if demo_state == "error" %}
+  {{ states.error_banner("案件データの取得に失敗しました（KKJ/p-portal 由来データの読み込みエラー）。") }}
+{% else %}
+
+<div style="display:flex; gap: var(--space-8); margin-bottom: var(--space-16);" aria-label="表示切替">
+  <a {% if view != 'watching' %}aria-current="page"{% endif %} class="btn {{ 'btn-secondary' if view != 'watching' else 'btn-ghost' }}" href="/items">すべて</a>
+  <a {% if view == 'watching' %}aria-current="page"{% endif %} class="btn {{ 'btn-secondary' if view == 'watching' else 'btn-ghost' }}" href="/items?view=watching">ウォッチリスト</a>
+</div>
+
+<form data-filter-form method="get" action="/items" class="toolbar" role="search" aria-label="案件フィルタ">
+  <input type="hidden" name="view" value="{{ view }}">
+  <div class="field" style="flex: 1; min-width: 200px;">
+    <label for="q">キーワード</label>
+    <input class="input" type="search" id="q" name="q" value="{{ q }}" placeholder="案件名・機関名で検索">
+  </div>
+  <div class="field">
+    <label for="category">業種</label>
+    <select class="input" id="category" name="category">
+      <option value="">すべて</option>
+      {% for c in categories %}
+      <option value="{{ c }}" {% if c == category %}selected{% endif %}>{{ c }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="region">地域</label>
+    <select class="input" id="region" name="region">
+      <option value="">すべて</option>
+      {% for r in regions %}
+      <option value="{{ r }}" {% if r == region %}selected{% endif %}>{{ r }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="deadline">締切</label>
+    <select class="input" id="deadline" name="deadline">
+      <option value="">すべて</option>
+      <option value="has" {% if deadline == 'has' %}selected{% endif %}>締切設定あり</option>
+      <option value="none" {% if deadline == 'none' %}selected{% endif %}>締切未設定</option>
+    </select>
+  </div>
+  <div class="field">
+    <label for="order_by">並び順</label>
+    <select class="input" id="order_by" name="order_by">
+      <option value="newest" {% if order_by == 'newest' %}selected{% endif %}>新着順</option>
+      <option value="deadline" {% if order_by == 'deadline' %}selected{% endif %}>締切が近い順</option>
+    </select>
+  </div>
+  <button class="btn btn-primary" type="submit" style="align-self: flex-end;">絞り込む</button>
+</form>
+
+{% if has_filters %}
+<div class="filter-chips" aria-label="適用中フィルタ">
+  {% if q %}<span class="chip">キーワード: {{ q }}</span>{% endif %}
+  {% if category %}<span class="chip">業種: {{ category }}</span>{% endif %}
+  {% if region %}<span class="chip">地域: {{ region }}</span>{% endif %}
+  {% if deadline %}<span class="chip">締切: {{ '設定あり' if deadline == 'has' else '未設定' }}</span>{% endif %}
+  <a class="chip" href="/items?view={{ view }}">すべてクリア ✕</a>
+</div>
+{% endif %}
+
+<p class="freshness">全 {{ total }} 件 / {{ '新着順' if order_by == 'newest' else '締切が近い順' }}</p>
+
+{% set current_url = "/items?view=" + view + "&q=" + q + "&category=" + category + "&region=" + region + "&deadline=" + deadline + "&order_by=" + order_by + "&page=" + (page|string) %}
+<form id="bulk-items-form" method="post" action="/items/bulk-watch">
+  <input type="hidden" name="next" value="{{ current_url }}">
+</form>
+
+<div class="bulk-action-bar" data-bulk-bar hidden role="status" aria-live="polite">
+  <span data-bulk-count>0 件選択中</span>
+  <button type="submit" form="bulk-items-form" formaction="/items/bulk-watch" class="btn btn-secondary btn-sm">まとめてウォッチ</button>
+  <button type="submit" form="bulk-items-form" formaction="/items/bulk-decline" class="btn btn-ghost btn-sm">まとめて見送り</button>
+</div>
+
+<div class="table-wrap">
+  <table class="data-table" aria-label="案件一覧" data-bulk-table>
+    <thead>
+      <tr>
+        <th><input type="checkbox" data-select-all aria-label="すべて選択"></th>
+        <th></th>
+        <th>案件名</th>
+        <th>発注機関</th>
+        <th>地域 / 業種</th>
+        <th class="num">締切</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% if demo_state == "loading" %}
+        {{ states.skeleton_rows(8, 7) }}
+      {% elif items|length == 0 %}
+        <tr><td colspan="7" style="border-bottom:none;">
+          {% if view == 'watching' %}
+            {{ states.empty_state("☆", "ウォッチ中の案件がありません", "案件一覧で気になる案件に☆を付けると、ここに表示されます。", "案件を探す", "/items") }}
+          {% elif has_filters %}
+            {{ states.empty_state("🔍", "条件に一致する案件がありません", "フィルタ条件を見直すか、クリアしてもう一度お試しください。", "フィルタをクリア", "/items?view=" + view) }}
+          {% else %}
+            {{ states.empty_state("📭", "新着案件がありません", "現在、登録されている入札・調達案件がありません。", "保存検索を作って新着を待つ", "/saved-searches", note="データ取り込みは bid-cli ingest コマンドで実行できます。") }}
+          {% endif %}
+        </td></tr>
+      {% else %}
+        {% for item in items %}
+        <tr>
+          <td><input type="checkbox" name="item_ids" value="{{ item.id }}" form="bulk-items-form" data-row-select aria-label="{{ item.title }} を選択"></td>
+          <td>
+            <form method="post" action="/items/{{ item.id }}/watch" style="display:inline;">
+              <input type="hidden" name="next" value="/items?view={{ view }}&q={{ q }}&category={{ category }}&region={{ region }}">
+              <input type="hidden" name="action" value="{{ 'unwatch' if item.watch_status == 'watching' else 'watch' }}">
+              <button class="watch-star {{ 'is-active' if item.watch_status == 'watching' else '' }}" type="submit"
+                aria-pressed="{{ 'true' if item.watch_status == 'watching' else 'false' }}"
+                aria-label="{{ '案件名 ' + item.title + ' のウォッチを解除' if item.watch_status == 'watching' else '案件名 ' + item.title + ' をウォッチに追加' }}">
+                {{ '★' if item.watch_status == 'watching' else '☆' }}
+              </button>
+            </form>
+          </td>
+          <td data-label="案件名"><a class="row-link" href="/items/{{ item.id }}">{{ item.title }}</a></td>
+          <td data-label="発注機関">{{ item.organization_name }}</td>
+          <td data-label="地域 / 業種">{{ item.region or "—" }} / {{ item.category or "—" }}</td>
+          <td data-label="締切" class="num">
+            {% set b = item.deadline_at | deadline_badge %}
+            <span class="badge {{ b.css }}">{{ b.label }}</span>
+          </td>
+          <td><a class="btn btn-ghost btn-sm" href="/items/{{ item.id }}">詳細</a></td>
+        </tr>
+        {% endfor %}
+      {% endif %}
+    </tbody>
+  </table>
+  {% if items and total > items|length %}
+  <nav class="pagination" aria-label="ページネーション">
+    全 {{ total }} 件中 {{ ((page-1)*20)+1 }}–{{ ((page-1)*20)+items|length }} 件
+    {% if page > 1 %}<a href="?view={{ view }}&q={{ q }}&category={{ category }}&region={{ region }}&deadline={{ deadline }}&order_by={{ order_by }}&page={{ page-1 }}">◀ 前へ</a>{% endif %}
+    {% if page < page_count %}<a href="?view={{ view }}&q={{ q }}&category={{ category }}&region={{ region }}&deadline={{ deadline }}&order_by={{ order_by }}&page={{ page+1 }}">次へ ▶</a>{% endif %}
+  </nav>
+  {% endif %}
+</div>
+
+{% endif %}
+{% endblock %}

@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% import "partials/states.html" as states %}
+{% block title %}{{ item.title if item else '案件詳細' }} — gov-bid{% endblock %}
+{% block page_title %}案件詳細（応札判断）{% endblock %}
+{% block content_width %}content--narrow{% endblock %}
+{% block content %}
+
+<a class="pd-back" href="/items">← 一覧に戻る</a>
+
+{% if demo_state == "error" %}
+  {{ states.error_banner("案件詳細の取得に失敗しました。") }}
+{% elif demo_state == "loading" %}
+  <div class="card"><span class="skeleton" style="width:60%;height:24px;display:block;margin-bottom:12px;"></span>
+  <span class="skeleton" style="width:100%;height:80px;display:block;"></span></div>
+{% elif not item %}
+  {{ states.empty_state("🔍", "案件が見つかりません", "削除されたか、URLが誤っている可能性があります。", "一覧に戻る", "/items") }}
+{% else %}
+
+<div class="pd-header">
+  <h1 style="font-size: var(--font-size-xl); font-weight: var(--font-weight-bold);">{{ item.title }}</h1>
+  <form method="post" action="/items/{{ item.id }}/watch">
+    <input type="hidden" name="next" value="/items/{{ item.id }}">
+    <input type="hidden" name="action" value="{{ 'unwatch' if item.watch_status == 'watching' else 'watch' }}">
+    <button class="btn btn-ghost" type="submit" aria-pressed="{{ 'true' if item.watch_status == 'watching' else 'false' }}">
+      {{ '★ ウォッチ中' if item.watch_status == 'watching' else '☆ ウォッチに追加' }}
+    </button>
+  </form>
+</div>
+
+<div class="card" style="margin-bottom: var(--space-16);">
+  <dl class="summary-row">
+    <div><dt>発注機関</dt><dd>{{ item.organization_name }}</dd></div>
+    <div><dt>種別</dt><dd>{{ item.category or "不明" }}</dd></div>
+    <div><dt>地域</dt><dd>{{ item.region or "不明" }}</dd></div>
+    <div><dt>公開日</dt><dd>{{ item.published_at[:10] if item.published_at else "不明" }}</dd></div>
+    <div>
+      <dt>応札締切</dt>
+      <dd>
+        {% set b = item.deadline_at | deadline_badge %}
+        <span class="badge {{ b.css }}">{{ b.label }}</span>
+        {% if item.deadline_at %}（{{ item.deadline_at[:10] }}）{% endif %}
+      </dd>
+    </div>
+  </dl>
+</div>
+
+<div class="detail-grid">
+  <div class="card">
+    <h2 class="section-title" style="margin-top:0">応札判断チェック</h2>
+    <div class="checklist">
+      <label><input type="checkbox"> 入札参加資格 等級 該当（要確認・自社プロフィール未連携）</label>
+      <label><input type="checkbox"> 地域要件 該当</label>
+      <label><input type="checkbox"> 実績要件 該当</label>
+    </div>
+    <p style="margin-top: var(--space-12); font-size: var(--font-size-xs); color: var(--muted-foreground);">
+      ※ 自社プロフィールとの自動照合は MVP 後の機能です（手動チェックのみ・保存されません）。
+    </p>
+  </div>
+  <div class="card">
+    <h2 class="section-title" style="margin-top:0">必要書類の重さ（目安）</h2>
+    <p>入札書 / 委任状 / 資格証明書 等（案件詳細の原本を確認のうえ、応札プロジェクト化後に書類チェックリストで管理します）</p>
+    <p style="margin-top: var(--space-8);"><span class="badge badge-neutral">準備コスト目安: 中</span></p>
+  </div>
+</div>
+
+{% if item.url %}
+<p style="margin-top: var(--space-16);"><a class="btn btn-ghost btn-sm" href="{{ item.url }}" target="_blank" rel="noopener">原本を開く ↗</a></p>
+{% endif %}
+
+<div class="card" style="margin-top: var(--space-16);">
+  <h2 class="section-title" style="margin-top:0">社内メモ・応札</h2>
+  {% set overdue = deadline_days is not none and deadline_days < 0 %}
+  <form method="post" action="/items/{{ item.id }}/decline" id="decline-form">
+    <input type="hidden" name="reason" value="">
+  </form>
+  <form method="post" action="/items/{{ item.id }}/bid" id="bid-form">
+    <div class="field" style="margin-bottom: var(--space-12);">
+      <label for="assignee">担当者</label>
+      <input class="input" id="assignee" name="assignee" required placeholder="例: 田中">
+    </div>
+    <div class="field" style="margin-bottom: var(--space-12);">
+      <label for="deadline_date">応札締切（未設定の場合は入力してください）</label>
+      <input class="input" type="date" id="deadline_date" name="deadline_date" value="{{ item.deadline_at[:10] if item.deadline_at else '' }}">
+    </div>
+    <div class="field" style="margin-bottom: var(--space-12);">
+      <label for="notes">社内メモ</label>
+      <textarea class="input" id="notes" name="notes" placeholder="判断理由・共有事項など"></textarea>
+    </div>
+    <div class="action-bar">
+      <button type="button" form="decline-form" class="btn btn-ghost" data-confirm="この案件を見送りとして記録します。理由を残せます。後から取り消せます。" data-confirm-title="見送りの確認" data-confirm-label="見送る" data-confirm-severity="soft" data-confirm-reason>見送る</button>
+      <button class="btn btn-primary" type="submit" {% if overdue %}disabled aria-disabled="true" title="締切超過のため応札できません"{% endif %}>
+        応札する（管理へ）
+      </button>
+    </div>
+    {% if overdue %}<p style="color: var(--deadline-overdue); font-size: var(--font-size-xs); text-align:right; margin-top: var(--space-8);">締切を超過しているため応札できません。</p>{% endif %}
+  </form>
+</div>
+
+{% endif %}
+{% endblock %}

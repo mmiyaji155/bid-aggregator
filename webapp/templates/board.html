@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% import "partials/states.html" as states %}
+{% block title %}入札管理 — gov-bid{% endblock %}
+{% block page_title %}入札管理{% endblock %}
+{% block content %}
+
+{% if demo_state == "error" %}
+  {{ states.error_banner("応札プロジェクトの取得に失敗しました。") }}
+{% else %}
+
+<div class="toolbar" style="justify-content: space-between;">
+  <span></span>
+  <button class="btn btn-primary" type="button" data-dialog-open="quick-add-dialog">＋ 手動で追加</button>
+</div>
+
+<div id="quick-add-dialog" class="scrim" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="qa-title">
+    <div class="dialog__title" id="qa-title">応札プロジェクトを手動で追加</div>
+    <p style="font-size: var(--font-size-xs); color: var(--muted-foreground);">KKJ / p-portal に無い自治体独自案件も管理対象にできます。</p>
+    <form method="post" action="/board/quick-add">
+      <div class="field" style="margin-bottom: var(--space-12);"><label for="qa-title-input">案件名</label><input class="input" id="qa-title-input" name="title" required></div>
+      <div class="field" style="margin-bottom: var(--space-12);"><label for="qa-org">発注機関</label><input class="input" id="qa-org" name="org"></div>
+      <div class="field" style="margin-bottom: var(--space-12);"><label for="qa-assignee">担当者</label><input class="input" id="qa-assignee" name="assignee"></div>
+      <div class="dialog__actions">
+        <button type="button" class="btn btn-ghost" data-dialog-close>キャンセル</button>
+        <button type="submit" class="btn btn-primary">追加する</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if demo_state == "loading" %}
+<div class="board">
+  {% for _ in range(4) %}
+  <div class="board-column"><div class="skeleton" style="width:100%;height:100px;"></div></div>
+  {% endfor %}
+</div>
+{% elif not columns or (columns['準備中']|length + columns['提出済み']|length + columns['結果待ち']|length + columns['落札失注']|length) == 0 %}
+  {{ states.empty_state("📋", "応札プロジェクトがありません", "案件を探して「応札する」を選ぶか、手動で追加すると、ここに表示されます。", "案件を探す", "/items") }}
+{% else %}
+
+<div class="board" role="list" aria-label="入札管理ボード">
+  {% for col_name, col_projects in columns.items() %}
+  <div class="board-column" role="listitem">
+    <div class="board-column__header">
+      <span>{{ col_name }}</span>
+      <span class="board-column__count">{{ col_projects|length }}</span>
+    </div>
+    {% if col_projects|length == 0 %}
+      <div class="board-column__empty">案件がありません</div>
+    {% endif %}
+    {% for p in col_projects %}
+    <div class="board-card {{ 'board-card--just-moved' if moved_id and p.id == moved_id else '' }}">
+      <div class="board-card__title"><a href="/board/projects/{{ p.id }}">{{ p.item_title or p.manual_title }}</a></div>
+      <div style="font-size: var(--font-size-xs); color: var(--muted-foreground);">{{ p.item_org or p.manual_org or "—" }}</div>
+      <div class="board-card__meta">
+        <span class="badge {{ p.status | status_badge_css }}">{{ p.status }}</span>
+        {% set b = p.deadline | deadline_badge %}
+        <span class="badge {{ b.css }}">{{ b.label }}</span>
+        <span>{{ p.assignee or "未設定" }}</span>
+      </div>
+      <div class="progress-bar"><div class="progress-bar__fill" style="width: {{ p.progress_pct }}%;"></div></div>
+      <div class="board-card__footer">
+        <span style="font-size: var(--font-size-xs); color: var(--muted-foreground);">書類 {{ p.doc_done }}/{{ p.doc_total }}</span>
+        <form method="post" action="/board/projects/{{ p.id }}/status">
+          <input type="hidden" name="next" value="/board">
+          <select class="input select-sm" name="status" data-status-select aria-label="{{ p.item_title or p.manual_title }} のステータス変更">
+            {% for s in ['準備中', '提出済み', '結果待ち', '落札', '失注'] %}
+            <option value="{{ s }}" {% if s == p.status %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

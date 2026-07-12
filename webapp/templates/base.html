@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}gov-bid 入札管理{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/static/css/tokens.css">
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+  <div class="app-shell">
+    <nav class="sidebar" aria-label="メインナビゲーション">
+      <div class="sidebar__brand">gov-bid</div>
+      <div class="sidebar__nav">
+        <a class="sidebar__link" href="/dashboard" {% if active_nav == 'dashboard' %}aria-current="page"{% endif %}>📊 ダッシュボード</a>
+        <a class="sidebar__link" href="/items" {% if active_nav == 'items' %}aria-current="page"{% endif %}>🔍 案件を探す</a>
+        <a class="sidebar__link" href="/board" {% if active_nav == 'board' %}aria-current="page"{% endif %}>📋 入札管理</a>
+        <a class="sidebar__link" href="/saved-searches" {% if active_nav == 'saved_searches' %}aria-current="page"{% endif %}>🔔 保存検索・通知</a>
+      </div>
+    </nav>
+    <div class="main">
+      <header class="topbar">
+        <div style="display:flex; align-items:center; gap: var(--space-12)">
+          <button class="sidebar__toggle" data-sidebar-toggle aria-label="メニューを開閉" aria-expanded="false">☰</button>
+          <span class="topbar__title">{% block page_title %}{% endblock %}</span>
+        </div>
+        <span class="topbar__meta">{% block topbar_meta %}{% endblock %}</span>
+      </header>
+      <div class="content {% block content_width %}{% endblock %}">
+        {% block content %}{% endblock %}
+      </div>
+    </div>
+  </div>
+  <div class="toast-region" role="status" aria-live="polite"></div>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

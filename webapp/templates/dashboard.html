@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% import "partials/states.html" as states %}
+{% block title %}ダッシュボード — gov-bid{% endblock %}
+{% block page_title %}ダッシュボード{% endblock %}
+{% block content %}
+
+{% if demo_state == "error" %}
+  {{ states.error_banner("ダッシュボードの集計に失敗しました。個別画面（案件一覧・入札管理）は引き続き利用できます。") }}
+{% elif demo_state == "loading" %}
+  <div class="card-grid">
+    {% for _ in range(3) %}<div class="card"><span class="skeleton" style="width:60%;height:14px;display:block;margin-bottom:8px;"></span><span class="skeleton" style="width:40%;height:30px;display:block;"></span></div>{% endfor %}
+  </div>
+{% else %}
+
+<div class="card-grid">
+  <div class="card stat-card">
+    <div class="stat-card__label">新着案件（直近3日）</div>
+    <div class="stat-card__value">{{ new_items_count }} 件</div>
+    <a class="stat-card__link" href="/items">新着を見る →</a>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-card__label">締切間近の応札プロジェクト</div>
+    <div class="stat-card__value">{{ deadline_soon|length }} 件</div>
+    <a class="stat-card__link" href="/board">入札管理を見る →</a>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-card__label">進行中の応札プロジェクト</div>
+    <div class="stat-card__value">{{ project_count }} 件</div>
+    <a class="stat-card__link" href="/board">ボードを見る →</a>
+  </div>
+</div>
+
+<h2 class="section-title">締切が近い応札プロジェクト</h2>
+{% if deadline_soon|length == 0 %}
+  {{ states.empty_state("📋", "応札プロジェクトがありません", "案件を探して「応札する」を選ぶと、ここに表示されます。", "案件を探す", "/items") }}
+{% else %}
+<div class="table-wrap">
+  <table class="data-table">
+    <thead><tr><th>案件名</th><th class="num">締切</th><th>担当</th><th class="num">進捗</th></tr></thead>
+    <tbody>
+      {% for p in deadline_soon %}
+      <tr>
+        <td data-label="案件名"><a class="row-link" href="/board/projects/{{ p.id }}">{{ p.item_title or p.manual_title }}</a></td>
+        <td data-label="締切" class="num">{% set b = p.deadline | deadline_badge %}<span class="badge {{ b.css }}">{{ b.label }}</span></td>
+        <td data-label="担当">{{ p.assignee or "未設定" }}</td>
+        <td data-label="進捗" class="num">{{ p.progress_pct }}%</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<h2 class="section-title">ウォッチ中の案件</h2>
+{% if watched|length == 0 %}
+  {{ states.empty_state("☆", "ウォッチ中の案件がありません", "案件一覧で気になる案件に☆を付けておきましょう。", "案件を探す", "/items") }}
+{% else %}
+<div class="table-wrap">
+  <table class="data-table">
+    <thead><tr><th>案件名</th><th>発注機関</th><th class="num">締切</th></tr></thead>
+    <tbody>
+      {% for item in watched %}
+      <tr>
+        <td data-label="案件名"><a class="row-link" href="/items/{{ item.id }}">{{ item.title }}</a></td>
+        <td data-label="発注機関">{{ item.organization_name }}</td>
+        <td data-label="締切" class="num">{% set b = item.deadline_at | deadline_badge %}<span class="badge {{ b.css }}">{{ b.label }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<h2 class="section-title">保存検索の新着</h2>
+{% if saved_searches|length == 0 %}
+  {{ states.empty_state("🔔", "保存検索がまだありません", "よく使う絞り込み条件を保存すると、新着を見逃さず通知できます。", "保存検索を作る", "/saved-searches") }}
+{% else %}
+<ul>
+  {% for s in saved_searches %}
+  <li style="padding: var(--space-8) 0; border-bottom: 1px solid var(--border);">「{{ s.name }}」<a href="/items?q={{ (s.filters_json | fromjson).keyword }}">新着を見る →</a></li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+{% endif %}
+{% endblock %}

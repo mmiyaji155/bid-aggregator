@@ -1,0 +1,35 @@
+{% macro error_banner(message="データの取得に失敗しました。") %}
+<div class="state-error" role="alert">
+  <span aria-hidden="true">⚠</span>
+  <div>
+    <div class="state-error__title">エラーが発生しました</div>
+    <div>{{ message }}</div>
+    <div style="margin-top: var(--space-8)">
+      <button type="button" class="btn btn-ghost btn-sm" onclick="location.reload()">再試行</button>
+    </div>
+  </div>
+</div>
+{% endmacro %}
+
+{% macro empty_state(icon, title, message, cta_label=None, cta_href=None, cta_label2=None, cta_href2=None, note=None) %}
+<div class="state-empty">
+  <div class="state-empty__icon" aria-hidden="true">{{ icon }}</div>
+  <div class="state-empty__title">{{ title }}</div>
+  <div>{{ message }}</div>
+  {% if cta_label or cta_label2 %}
+  <div style="display:flex; gap: var(--space-8); flex-wrap: wrap; justify-content:center;">
+    {% if cta_label %}<a class="btn btn-primary" href="{{ cta_href }}">{{ cta_label }}</a>{% endif %}
+    {% if cta_label2 %}<a class="btn btn-ghost" href="{{ cta_href2 }}">{{ cta_label2 }}</a>{% endif %}
+  </div>
+  {% endif %}
+  {% if note %}
+  <p style="font-size: var(--font-size-xs); color: var(--muted-foreground); margin-top: var(--space-4);">{{ note }}</p>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{% macro skeleton_rows(n=6, colspan=6) %}
+{% for _ in range(n) %}
+<tr class="skeleton-row"><td colspan="{{ colspan }}"><span class="skeleton" style="width: 100%; height: 16px;"></span></td></tr>
+{% endfor %}
+{% endmacro %}
