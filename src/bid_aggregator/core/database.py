@@ -6,6 +6,7 @@ SQLite/PostgreSQLデータベースの初期化、マイグレーション、CRU
 
 import hashlib
 import sqlite3
+import threading
 import unicodedata
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -291,7 +292,8 @@ class PostgresConnection:
                 cursor.execute(statement)
 
     def commit(self) -> None:
-        self._conn.commit()
+        if not getattr(self._conn, "autocommit", False):
+            self._conn.commit()
 
     def close(self) -> None:
         self._conn.close()
@@ -323,25 +325,79 @@ def _connect_postgres() -> PostgresConnection:
         }
         if settings.db_port is not None:
             kwargs["port"] = settings.db_port
-        conn = psycopg.connect(**kwargs)
+        conn = psycopg.connect(**kwargs, autocommit=True)
     else:
-        conn = psycopg.connect(settings.database_url, row_factory=dict_row)
+        conn = psycopg.connect(settings.database_url, row_factory=dict_row, autocommit=True)
     return PostgresConnection(conn)
+
+
+_pg_local = threading.local()
+_PG_PING_IDLE_SECONDS = 60.0
+
+
+def _get_cached_postgres() -> PostgresConnection:
+    """スレッドローカルに PostgreSQL 接続をキャッシュして再利用する。
+
+    リモート DB（Supabase 等）では接続確立（TCP+TLS ハンドシェイク）が支配的コストのため、
+    利用のたびの張り直しを避ける。psycopg 接続はスレッド非安全なので threading.local で
+    スレッドごとに分離する。生存確認の ping はアイドルが 60 秒を超えた時だけ行い
+    （pooler のアイドル切断対策）、直近利用の接続は往復なしで返す。
+    """
+    import time as _time
+
+    conn: PostgresConnection | None = getattr(_pg_local, "conn", None)
+    last_used: float = getattr(_pg_local, "last_used", 0.0)
+    now = _time.monotonic()
+    if conn is not None:
+        if getattr(conn._conn, "closed", False):
+            _pg_local.conn = None
+            conn = None
+        elif now - last_used > _PG_PING_IDLE_SECONDS:
+            try:
+                conn.execute("SELECT 1")
+            except Exception:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+                _pg_local.conn = None
+                conn = None
+    if conn is None:
+        conn = _connect_postgres()
+        _pg_local.conn = conn
+    _pg_local.last_used = now
+    return conn
 
 
 @contextmanager
 def get_connection() -> Generator[sqlite3.Connection | PostgresConnection, None, None]:
-    """データベース接続を取得（コンテキストマネージャ）"""
+    """データベース接続を取得（コンテキストマネージャ）
+
+    PostgreSQL はスレッドローカルにキャッシュした接続を再利用する（close しない）。
+    返却時に rollback して未コミットのトランザクション状態をリセットする
+    （書き込み側は従来どおり明示 commit を呼ぶ。commit 済みなら rollback は no-op）。
+    SQLite は従来どおり毎回開いて閉じる（ローカルファイルのため接続コストが無視できる）。
+    """
     if get_database_backend() == "postgresql":
-        conn = _connect_postgres()
+        pg_conn = _get_cached_postgres()
+        try:
+            yield pg_conn
+        except Exception:
+            # 失敗した接続は破棄して次回再接続（半端な状態の温存を避ける）
+            try:
+                pg_conn.close()
+            except Exception:
+                pass
+            _pg_local.conn = None
+            raise
     else:
         db_path = get_db_path()
-        conn = sqlite3.connect(db_path)
-        conn.row_factory = sqlite3.Row
-    try:
-        yield conn
-    finally:
-        conn.close()
+        sqlite_conn = sqlite3.connect(db_path)
+        sqlite_conn.row_factory = sqlite3.Row
+        try:
+            yield sqlite_conn
+        finally:
+            sqlite_conn.close()
 
 
 def init_db() -> None:
