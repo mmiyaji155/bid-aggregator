@@ -254,6 +254,36 @@ table.data-table { width: 100%; border-collapse: collapse; }
 .pagination a { display: inline-flex; align-items: center; gap: var(--space-2); }
 .pagination a[aria-current="page"] { color: var(--primary-strong); font-weight: var(--font-weight-bold); }
 
+/* ---------------------------------------------------------------- item cards（案件一覧・v2.5 でテーブル→カードグリッドへ。ユーザー決定） */
+.select-all-row {
+  display: inline-flex; align-items: center; gap: var(--space-8);
+  font-size: var(--font-size-xs); color: var(--muted-foreground);
+  margin-bottom: var(--space-8); cursor: pointer;
+}
+.item-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: var(--card-gap);
+}
+.item-cards__empty { grid-column: 1 / -1; }
+.item-card {
+  background: var(--card); color: var(--card-foreground);
+  border: 1px solid var(--border); border-radius: var(--radius-surface);
+  padding: var(--space-16);
+  display: flex; flex-direction: column; gap: var(--space-8);
+  transition: border-color var(--motion-feedback) var(--easing-standard);
+}
+.item-card:hover { border-color: var(--input); }
+.item-card__top { display: flex; align-items: center; justify-content: space-between; }
+.item-card__title { font-size: var(--font-size-sm); line-height: var(--line-height-sm); font-weight: var(--font-weight-bold); min-height: calc(2 * var(--line-height-sm)); }
+.item-card__title a {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.item-card__title a:hover { color: var(--primary-strong); text-decoration: underline; }
+.item-card__meta { font-size: var(--font-size-xs); color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item-card__footer { display: flex; align-items: center; justify-content: space-between; gap: var(--space-8); margin-top: auto; }
+
 /* ---------------------------------------------------------------- states: skeleton / empty / error */
 .skeleton-row { height: var(--row-height-compact); }
 .skeleton {
