@@ -3,7 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}gov-bid 入札管理{% endblock %}</title>
+  <title>{% block title %}カンテラ | 官公需入札の発見・管理{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap">
@@ -13,7 +14,10 @@
 <body>
   <div class="app-shell">
     <nav class="sidebar" aria-label="メインナビゲーション">
-      <a class="sidebar__brand" href="/dashboard" aria-label="gov-bid ホーム">gov-bid</a>
+      <a class="sidebar__brand" href="/dashboard" aria-label="カンテラ ホーム">
+        <img src="/static/img/kantera-mark.svg" alt="" width="26" height="26">
+        <span>カンテラ</span>
+      </a>
       <div class="sidebar__nav">
         <a class="sidebar__link" href="/dashboard" {% if active_nav == 'dashboard' %}aria-current="page"{% endif %}>{{ icons.icon('layout-dashboard', 18) }}<span>ダッシュボード</span></a>
         <a class="sidebar__link" href="/items" {% if active_nav == 'items' %}aria-current="page"{% endif %}>{{ icons.icon('search', 18) }}<span>案件を探す</span></a>

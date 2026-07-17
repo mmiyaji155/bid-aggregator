@@ -41,17 +41,17 @@ textarea:focus-visible,
   padding: var(--space-16) 0;
 }
 .sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
   padding: 0 var(--space-16) var(--space-16);
   font-weight: var(--font-weight-bold);
   font-size: var(--font-size-lg);
-  color: var(--foreground); /* ロゴ準拠: 黒ワードマーク + オレンジの下線バー */
-  text-decoration: underline;
-  text-decoration-color: var(--primary);
-  text-decoration-thickness: 3px;
-  text-underline-offset: 6px;
+  color: var(--foreground); /* カンテラ ロゴ: 手提げランタンのマーク + 墨のワードマーク（v2.6 で MYA 風アンダーラインを廃止） */
   border-bottom: 1px solid var(--border);
   margin-bottom: var(--space-8);
 }
+.sidebar__brand img { flex-shrink: 0; }
 .sidebar__nav { display: flex; flex-direction: column; gap: var(--space-4); padding: 0 var(--space-8); }
 .sidebar__link {
   display: flex;
