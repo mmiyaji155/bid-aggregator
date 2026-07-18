@@ -5,6 +5,7 @@ KKJ APIクライアント
 """
 
 import logging
+import re
 import time
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
@@ -16,6 +17,52 @@ from bid_aggregator.core.config import settings
 from bid_aggregator.core.models import KKJAPIResponse, KKJAttachment, KKJSearchResult, QueryParams
 
 logger = logging.getLogger(__name__)
+
+# KKJ APIレスポンスに稀に混入する不正な UTF-8（サロゲートペアの誤直列化。
+# 例: \xed\xa0\xb5\xed\xb2\x8f のような CESU-8 風のバイト列）を検出・修復するための正規表現。
+# 標準の "utf-8" strict decode ではこのバイト列は invalid continuation byte として
+# UnicodeDecodeError になる。"surrogatepass" で寛容にデコードすると、対応する
+# サロゲートペア（\ud800-\udbff の上位 + \udc00-\udfff の下位）が復元できるので、
+# 正しいペアは実際の文字（結合済みの Unicode コードポイント）へ復元し、
+# 対応が取れない孤立サロゲートは置換文字 U+FFFD に変換して再エンコードする。
+_SURROGATE_PAIR_RE = re.compile("[\ud800-\udbff][\udc00-\udfff]")
+_LONE_SURROGATE_RE = re.compile("[\ud800-\udfff]")
+
+
+def _combine_surrogate_pair(match: re.Match) -> str:
+    """サロゲートペア（高位+低位）を実際の1文字（結合済みコードポイント）へ変換する"""
+    hi = ord(match.group(0)[0])
+    lo = ord(match.group(0)[1])
+    code_point = 0x10000 + (hi - 0xD800) * 0x400 + (lo - 0xDC00)
+    return chr(code_point)
+
+
+def sanitize_kkj_xml_bytes(content: bytes) -> bytes:
+    """
+    KKJ APIレスポンスのバイト列から、不正な UTF-8 サロゲートペア誤直列化を除去・修復する。
+
+    KKJ 公式APIはHTTP 200で返すが、一部レコードのタイトル等に
+    誤って CESU-8 的にエンコードされたサロゲートペア（本来 UTF-8 では現れてはいけない
+    バイト列）が混入することがあり、標準の xml.etree.ElementTree（内部で strict utf-8
+    decode を行う）がこれを ParseError として全体を落としてしまう既知の不具合がある
+    （kn-20260711-013）。
+
+    ここでは lxml 等の追加依存を増やさず、標準ライブラリのみで対処する:
+      1. まず strict utf-8 でデコードを試み、成功すればそのまま返す（無傷ならノーコスト）
+      2. 失敗した場合のみ "surrogatepass" で寛容にデコードし、
+         正しく対になっているサロゲートペアは実際の文字へ復元し、
+         孤立したサロゲートは U+FFFD に置換したうえで utf-8 に再エンコードする
+    """
+    try:
+        content.decode("utf-8")
+        return content
+    except UnicodeDecodeError:
+        logger.warning("KKJ APIレスポンスに不正なUTF-8バイト列を検出。サニタイズを実行します")
+
+    text = content.decode("utf-8", errors="surrogatepass")
+    text = _SURROGATE_PAIR_RE.sub(_combine_surrogate_pair, text)
+    text = _LONE_SURROGATE_RE.sub("�", text)
+    return text.encode("utf-8")
 
 
 class KKJAPIError(Exception):
@@ -101,35 +148,43 @@ class KKJClient:
 
     def _parse_xml_response(self, xml_content: bytes) -> KKJAPIResponse:
         """XMLレスポンスをパース"""
+        xml_content = sanitize_kkj_xml_bytes(xml_content)
+
         try:
             root = ET.fromstring(xml_content)
         except ET.ParseError as e:
             raise KKJAPIError(f"XMLパースエラー: {e}") from e
-        
+
         # エラーチェック
         error_elem = root.find("e")
         if error_elem is not None:
             raise KKJAPIError(f"API エラー: {error_elem.text}")
-        
+
         # バージョン
         version_elem = root.find("Version")
         version = version_elem.text if version_elem is not None else "unknown"
-        
+
         # 検索結果
         search_results = root.find("SearchResults")
         if search_results is None:
             return KKJAPIResponse(version=version, search_hits=0, results=[])
-        
+
         # ヒット件数
         search_hits_elem = search_results.find("SearchHits")
         search_hits = int(search_hits_elem.text) if search_hits_elem is not None else 0
-        
-        # 各検索結果をパース
+
+        # 各検索結果をパース（個別レコードが壊れていても全体を落とさずスキップする）
         results = []
         for sr in search_results.findall("SearchResult"):
-            result = self._parse_search_result(sr)
+            try:
+                result = self._parse_search_result(sr)
+            except Exception as e:
+                key_elem = sr.find("Key")
+                key = key_elem.text if key_elem is not None else "unknown"
+                logger.warning(f"SearchResultのパースに失敗、スキップします: key={key}, error={e}")
+                continue
             results.append(result)
-        
+
         return KKJAPIResponse(version=version, search_hits=search_hits, results=results)
 
     def _parse_search_result(self, elem: ET.Element) -> KKJSearchResult:

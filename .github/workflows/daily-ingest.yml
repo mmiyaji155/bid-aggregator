@@ -1,0 +1,29 @@
+name: daily-ingest
+
+on:
+  schedule:
+    # JST 06:00（UTC 21:00 前日）に毎日実行
+    - cron: "0 21 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install .
+      - name: KKJ ingest
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          cp config/queries.example.yml config/queries.yml
+          bid-cli ingest
+      - name: p-portal daily ingest
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: bid-cli pportal-daily

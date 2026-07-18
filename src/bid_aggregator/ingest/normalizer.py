@@ -64,7 +64,10 @@ def normalize_kkj_result(result: KKJSearchResult, source: str = "kkj") -> Item:
 
     # 日付のパース
     published_at = parse_iso8601_date(result.cft_issue_date)
-    deadline_at = parse_iso8601_date(result.period_end_time)
+    # deadline_at: 応札締切（tender_submission_deadline）優先、
+    # 無ければ入札公告の有効期限（period_end_time）にフォールバック
+    deadline_source = result.tender_submission_deadline or result.period_end_time
+    deadline_at = parse_iso8601_date(deadline_source)
 
     # 地域の構築
     region_parts = []
@@ -79,7 +82,7 @@ def normalize_kkj_result(result: KKJSearchResult, source: str = "kkj") -> Item:
         title=result.project_name,
         organization_name=organization_name,
         published_at=result.cft_issue_date,
-        deadline_at=result.period_end_time,
+        deadline_at=deadline_source,
         url=result.external_document_uri,
         source_item_id=result.key,
     )

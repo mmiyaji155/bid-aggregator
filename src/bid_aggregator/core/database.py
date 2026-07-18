@@ -315,6 +315,12 @@ def _connect_postgres() -> PostgresConnection:
     except ImportError as exc:  # pragma: no cover - PostgreSQL利用時のみ
         raise RuntimeError("PostgreSQLを使うには psycopg[binary] が必要です") from exc
 
+    # 接続先は Supabase の PgBouncer/Supavisor（transaction pooling mode、既定 port 6543）を
+    # 経由することが多い。psycopg3 は既定で prepare_threshold=5 回目以降のクエリをサーバーサイド
+    # PREPARE するが、transaction pooling では毎トランザクションごとに物理接続が入れ替わり得るため、
+    # クライアント側にキャッシュした prepared statement が別の物理接続では存在せず
+    # "prepared statement ... does not exist" エラーになる（同一SQLを大量反復する upsert_item 等で顕在化）。
+    # prepare_threshold=None でサーバーサイド prepare を無効化し、pooler越しでも安全に動作させる。
     if settings.db_host or settings.db_name or settings.db_user:
         kwargs = {
             "host": settings.db_host,
@@ -325,9 +331,11 @@ def _connect_postgres() -> PostgresConnection:
         }
         if settings.db_port is not None:
             kwargs["port"] = settings.db_port
-        conn = psycopg.connect(**kwargs, autocommit=True)
+        conn = psycopg.connect(**kwargs, autocommit=True, prepare_threshold=None)
     else:
-        conn = psycopg.connect(settings.database_url, row_factory=dict_row, autocommit=True)
+        conn = psycopg.connect(
+            settings.database_url, row_factory=dict_row, autocommit=True, prepare_threshold=None
+        )
     return PostgresConnection(conn)
 
 
