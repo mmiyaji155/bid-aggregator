@@ -134,6 +134,26 @@ CREATE TABLE IF NOT EXISTS saved_search_notifications (
 CREATE INDEX IF NOT EXISTS idx_ssn_run_id ON saved_search_notifications(saved_search_run_id);
 CREATE INDEX IF NOT EXISTS idx_ssn_channel ON saved_search_notifications(channel);
 CREATE INDEX IF NOT EXISTS idx_ssn_status ON saved_search_notifications(status);
+
+-- enrich_log: 締切メタデータ抽出（deadline_extractor）の監査ログ
+-- 公告文書の取得・LLM抽出の全試行を記録し、精度検証・再実行判断の基盤とする
+CREATE TABLE IF NOT EXISTS enrich_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id INTEGER NOT NULL,
+    url TEXT,
+    status TEXT NOT NULL,
+    deadline_date TEXT,
+    deadline_kind TEXT,
+    confidence TEXT,
+    evidence TEXT,
+    error TEXT,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (item_id) REFERENCES items(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_enrich_log_item_id ON enrich_log(item_id);
+CREATE INDEX IF NOT EXISTS idx_enrich_log_created_at ON enrich_log(created_at);
+CREATE INDEX IF NOT EXISTS idx_enrich_log_status ON enrich_log(status);
 """
 
 POSTGRES_DDL_STATEMENTS = """
@@ -245,6 +265,25 @@ CREATE TABLE IF NOT EXISTS saved_search_notifications (
 CREATE INDEX IF NOT EXISTS idx_ssn_run_id ON saved_search_notifications(saved_search_run_id);
 CREATE INDEX IF NOT EXISTS idx_ssn_channel ON saved_search_notifications(channel);
 CREATE INDEX IF NOT EXISTS idx_ssn_status ON saved_search_notifications(status);
+
+-- enrich_log: 締切メタデータ抽出（deadline_extractor）の監査ログ
+-- 公告文書の取得・LLM抽出の全試行を記録し、精度検証・再実行判断の基盤とする
+CREATE TABLE IF NOT EXISTS enrich_log (
+    id BIGSERIAL PRIMARY KEY,
+    item_id BIGINT NOT NULL REFERENCES items(id),
+    url TEXT,
+    status TEXT NOT NULL,
+    deadline_date TEXT,
+    deadline_kind TEXT,
+    confidence TEXT,
+    evidence TEXT,
+    error TEXT,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_enrich_log_item_id ON enrich_log(item_id);
+CREATE INDEX IF NOT EXISTS idx_enrich_log_created_at ON enrich_log(created_at);
+CREATE INDEX IF NOT EXISTS idx_enrich_log_status ON enrich_log(status);
 """
 
 

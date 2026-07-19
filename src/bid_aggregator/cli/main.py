@@ -460,6 +460,70 @@ def pportal_daily(
 
 
 # =============================================================================
+# enrich-deadlines コマンド（締切メタデータ抽出）
+# =============================================================================
+
+
+@cli.command("enrich-deadlines")
+@click.option("--limit", "-n", default=20, help="処理対象の上限件数（LLM呼び出し回数の上限と一致）")
+@click.option("--dry-run", is_flag=True, help="文書取得・LLM抽出は実行するがDB書き込みをスキップ")
+@click.option("--interval", default=1.0, help="文書取得の連続アクセス間隔（秒）")
+def enrich_deadlines(limit: int, dry_run: bool, interval: float) -> None:
+    """締切未設定の案件の公告文書を取得し、LLMで締切日を抽出してDBに反映する"""
+    from bid_aggregator.enrich import DeadlineExtractionError, run_enrich_deadlines
+
+    if limit < 1:
+        raise click.ClickException("--limit は1以上を指定してください")
+
+    try:
+        if dry_run:
+            console.print("[yellow]ドライラン モード（DB書き込みなし）[/yellow]")
+
+        result = run_enrich_deadlines(limit=limit, dry_run=dry_run, request_interval=interval)
+
+        table = Table(title="締切抽出結果")
+        table.add_column("項目", style="cyan")
+        table.add_column("件数", justify="right")
+        table.add_row("対象", str(result.total))
+        table.add_row("文書取得成功", str(result.fetch_ok))
+        table.add_row("文書取得スキップ", str(result.fetch_skip))
+        table.add_row("文書取得エラー", str(result.fetch_error))
+        table.add_row("LLM抽出 high", str(result.llm_high), style="green")
+        table.add_row("LLM抽出 low", str(result.llm_low), style="yellow")
+        table.add_row("LLM抽出エラー", str(result.llm_error), style="red")
+        table.add_section()
+        table.add_row("[bold]deadline_at 更新[/bold]", str(result.updated))
+        console.print(table)
+
+        if result.rows:
+            console.print()
+            detail = Table(title="抽出詳細")
+            detail.add_column("ID", justify="right")
+            detail.add_column("状態")
+            detail.add_column("タイトル", overflow="fold", max_width=40)
+            detail.add_column("締切日")
+            detail.add_column("確信度")
+            detail.add_column("反映")
+            for row in result.rows:
+                detail.add_row(
+                    str(row.get("item_id")),
+                    row.get("status", "-"),
+                    (row.get("title") or "")[:40],
+                    row.get("deadline_date") or "-",
+                    row.get("confidence") or "-",
+                    "✓" if row.get("written") else "-",
+                )
+            console.print(detail)
+
+    except DeadlineExtractionError as e:
+        console.print(f"[red]エラー:[/red] {e}")
+        sys.exit(1)
+    except Exception as e:
+        console.print(f"[red]エラー:[/red] {e}")
+        sys.exit(1)
+
+
+# =============================================================================
 # search コマンド
 # =============================================================================
 

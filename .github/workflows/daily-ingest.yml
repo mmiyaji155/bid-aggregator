@@ -27,3 +27,8 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: bid-cli pportal-daily
+      - name: Enrich deadlines (公告文書 → 締切抽出)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: bid-cli enrich-deadlines --limit 50

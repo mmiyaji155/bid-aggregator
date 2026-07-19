@@ -6,6 +6,7 @@
 
 from bid_aggregator.core.config import settings
 from bid_aggregator.core.database import (
+    BatchUpsertResult,
     generate_body_hash,
     generate_content_hash,
     generate_raw_hash,
@@ -18,6 +19,7 @@ from bid_aggregator.core.database import (
     save_raw_fetch,
     search_items,
     upsert_item,
+    upsert_items_batch,
 )
 from bid_aggregator.core.models import (
     Item,
@@ -38,6 +40,8 @@ __all__ = [
     "insert_and_get_id",
     "save_raw_fetch",
     "upsert_item",
+    "upsert_items_batch",
+    "BatchUpsertResult",
     "search_items",
     "generate_content_hash",
     "generate_body_hash",
