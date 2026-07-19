@@ -14,7 +14,7 @@ from bid_aggregator.core.database import (
     generate_raw_hash,
     generate_request_fingerprint,
     save_raw_fetch,
-    upsert_item,
+    upsert_items_batch,
 )
 from bid_aggregator.core.models import QueriesConfig, QueryConfig, RawFetch
 from bid_aggregator.ingest.kkj_client import KKJClient
@@ -198,31 +198,28 @@ def _process_query(
         for result, err in normalize_errors[:5]:  # 最初の5件のエラーをログ
             logger.warning(f"正規化エラー詳細: key={result.key}, error={err}")
     
-    # DB保存
+    # DB保存（バッチ upsert。1件ずつの往復を避け、100件単位でまとめて書き込む）
     new_count = 0
     updated_count = 0
-    
+    db_error_count = 0
+
     if not dry_run:
         logger.info(f"DB保存開始: {len(items)}件")
-        for i, item in enumerate(items):
-            try:
-                item_id, is_new = upsert_item(item)
-                if is_new:
-                    new_count += 1
-                else:
-                    updated_count += 1
-                if (i + 1) % 100 == 0:
-                    logger.debug(f"DB保存進捗: {i + 1}/{len(items)}件")
-            except Exception as e:
-                logger.error(f"DB保存エラー: {item.title[:30]}..., error={e}")
-        logger.info(f"DB保存完了: 新規={new_count}件, 更新={updated_count}件")
+        batch_result = upsert_items_batch(items, batch_size=100)
+        new_count = batch_result.new_count
+        updated_count = batch_result.updated_count
+        db_error_count = batch_result.error_count
+        logger.info(
+            f"DB保存完了: 新規={new_count}件, 更新={updated_count}件, "
+            f"DBエラー={db_error_count}件"
+        )
     else:
         # dry_runの場合は全て新規とみなす
         new_count = len(items)
-    
+
     return {
         "fetched": len(response.results),
         "new": new_count,
         "updated": updated_count,
-        "errors": len(normalize_errors),
+        "errors": len(normalize_errors) + db_error_count,
     }

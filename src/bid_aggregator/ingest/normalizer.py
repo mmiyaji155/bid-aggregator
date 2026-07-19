@@ -9,6 +9,18 @@ import re
 from datetime import datetime
 
 from bid_aggregator.core.database import generate_body_hash, generate_content_hash
+
+#: body（案件説明文）の最大文字数。KKJ の project_description には稀に添付文書がまるごと
+#: 埋め込まれた 100MB 超の「クジラレコード」が混入し（実測 157MB / 2026-07-19 特定）、
+#: そのままだと単一 INSERT 文が巨大化して Supabase pooler 経由の書き込みが永久ハングする。
+#: 表示・検索用途には十分な長さで切り詰める（body_hash は切り詰め後の値で計算し一貫させる）。
+_MAX_BODY_CHARS = 100_000
+
+
+def _truncate_body(text: str | None) -> str | None:
+    if text and len(text) > _MAX_BODY_CHARS:
+        return text[:_MAX_BODY_CHARS] + "\n…（本文が長大なため切り詰め）"
+    return text
 from bid_aggregator.core.models import Item, KKJSearchResult
 
 logger = logging.getLogger(__name__)
@@ -87,7 +99,8 @@ def normalize_kkj_result(result: KKJSearchResult, source: str = "kkj") -> Item:
         source_item_id=result.key,
     )
 
-    body_hash = generate_body_hash(result.project_description)
+    body_text = _truncate_body(result.project_description)
+    body_hash = generate_body_hash(body_text)
 
     return Item(
         source=source,
@@ -99,7 +112,7 @@ def normalize_kkj_result(result: KKJSearchResult, source: str = "kkj") -> Item:
         deadline_at=deadline_at,
         category=result.category,
         region=region,
-        body=result.project_description,
+        body=body_text,
         body_hash=body_hash,
         content_hash=content_hash,
     )

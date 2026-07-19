@@ -308,9 +308,36 @@ def _split_sql_script(script: str) -> list[str]:
     return [statement.strip() for statement in script.split(";") if statement.strip()]
 
 
+#: 接続確立時に付与する libpq レベルの堅牢化パラメータ。
+#: - connect_timeout: TCP/TLS ハンドシェイクが詰まった場合に永久待ちにしない
+#: - keepalives*: アイドル中の pooler 側切断（silent drop）を検知してハングを防ぐ
+_PG_ROBUSTNESS_KWARGS: dict[str, int] = {
+    "connect_timeout": 10,
+    "keepalives": 1,
+    "keepalives_idle": 30,
+    "keepalives_interval": 10,
+    "keepalives_count": 3,
+}
+
+#: サーバー側クエリタイムアウト（ミリ秒）。1文が詰まった場合に接続を無限占有しない。
+_PG_STATEMENT_TIMEOUT_MS = 60_000
+
+
+def _merge_statement_timeout_options(existing_options: str | None) -> str:
+    """既存の `options`（例: `-c search_path=govbid`）に statement_timeout を追記する。
+
+    既存の options 値を破壊せず末尾に `-c statement_timeout=...` を追加する。
+    """
+    extra = f"-c statement_timeout={_PG_STATEMENT_TIMEOUT_MS}"
+    if existing_options:
+        return f"{existing_options} {extra}"
+    return extra
+
+
 def _connect_postgres() -> PostgresConnection:
     try:
         import psycopg
+        from psycopg.conninfo import conninfo_to_dict
         from psycopg.rows import dict_row
     except ImportError as exc:  # pragma: no cover - PostgreSQL利用時のみ
         raise RuntimeError("PostgreSQLを使うには psycopg[binary] が必要です") from exc
@@ -322,19 +349,26 @@ def _connect_postgres() -> PostgresConnection:
     # "prepared statement ... does not exist" エラーになる（同一SQLを大量反復する upsert_item 等で顕在化）。
     # prepare_threshold=None でサーバーサイド prepare を無効化し、pooler越しでも安全に動作させる。
     if settings.db_host or settings.db_name or settings.db_user:
-        kwargs = {
+        kwargs: dict[str, Any] = {
             "host": settings.db_host,
             "dbname": settings.db_name,
             "user": settings.db_user,
             "password": settings.db_password,
             "row_factory": dict_row,
+            "options": _merge_statement_timeout_options(None),
+            **_PG_ROBUSTNESS_KWARGS,
         }
         if settings.db_port is not None:
             kwargs["port"] = settings.db_port
         conn = psycopg.connect(**kwargs, autocommit=True, prepare_threshold=None)
     else:
+        # DATABASE_URL（DSN文字列）を分解し、既存の options（例: search_path 指定）を
+        # 保持したまま statement_timeout と keepalive 系パラメータを追加する。
+        parsed = conninfo_to_dict(settings.database_url)
+        parsed["options"] = _merge_statement_timeout_options(parsed.get("options"))
+        parsed.update(_PG_ROBUSTNESS_KWARGS)
         conn = psycopg.connect(
-            settings.database_url, row_factory=dict_row, autocommit=True, prepare_threshold=None
+            **parsed, row_factory=dict_row, autocommit=True, prepare_threshold=None
         )
     return PostgresConnection(conn)
 
@@ -524,8 +558,29 @@ def generate_request_fingerprint(source: str, params: dict) -> str:
 # =============================================================================
 
 
+#: raw_payload をこのサイズ（バイト）以上なら zlib 圧縮して保存する。
+#: KKJ の広域クエリは 1 レスポンス 70MB 級になり、巨大 BYTEA の単発 INSERT は
+#: リモート Postgres（Supabase pooler）経由でハングする実績があるため（2026-07-19 特定）、
+#: 大きいペイロードは圧縮して転送量を 1/10 程度に抑える。XML/JSON はよく縮む。
+#: 圧縮した場合は content_type に "; codec=zlib" を付記する（raw_hash は元データのハッシュのまま）。
+_RAW_PAYLOAD_COMPRESS_THRESHOLD = 1 * 1024 * 1024  # 1MB
+
+
 def save_raw_fetch(raw: RawFetch) -> int:
-    """生データを保存"""
+    """生データを保存（大きいペイロードは zlib 圧縮）"""
+    import zlib
+
+    payload = raw.raw_payload
+    content_type = raw.content_type
+    if len(payload) >= _RAW_PAYLOAD_COMPRESS_THRESHOLD:
+        compressed = zlib.compress(payload, level=6)
+        logger_ = __import__("logging").getLogger(__name__)
+        logger_.info(
+            "raw_payload を圧縮して保存: %d bytes -> %d bytes", len(payload), len(compressed)
+        )
+        payload = compressed
+        content_type = f"{content_type}; codec=zlib"
+
     with get_connection() as conn:
         row_id = insert_and_get_id(
             conn,
@@ -539,9 +594,9 @@ def save_raw_fetch(raw: RawFetch) -> int:
                 raw.fetched_at.isoformat(),
                 raw.request_fingerprint,
                 raw.http_status,
-                raw.content_type,
+                content_type,
                 raw.raw_hash,
-                raw.raw_payload,
+                payload,
             ),
         )
         conn.commit()
@@ -665,6 +720,266 @@ def upsert_item(item: Item) -> tuple[int, bool]:
             )
             conn.commit()
             return item_id, True
+
+
+# =============================================================================
+# CRUD操作: items（バッチ upsert）
+# =============================================================================
+
+_ITEM_COLUMNS = (
+    "source_item_id",
+    "url",
+    "title",
+    "organization_name",
+    "published_at",
+    "deadline_at",
+    "category",
+    "region",
+    "body",
+    "body_hash",
+    "content_hash",
+)
+
+
+class BatchUpsertResult:
+    """バッチ upsert の結果集計。"""
+
+    def __init__(self) -> None:
+        self.new_count: int = 0
+        self.updated_count: int = 0
+        self.error_count: int = 0
+
+    def __repr__(self) -> str:  # pragma: no cover - デバッグ用
+        return (
+            f"BatchUpsertResult(new={self.new_count}, "
+            f"updated={self.updated_count}, errors={self.error_count})"
+        )
+
+
+def _item_field_values(item: Item, now: str) -> tuple:
+    return (
+        item.source_item_id,
+        item.url,
+        item.title,
+        item.organization_name,
+        item.published_at.isoformat() if item.published_at else None,
+        item.deadline_at.isoformat() if item.deadline_at else None,
+        item.category,
+        item.region,
+        item.body,
+        item.body_hash,
+        item.content_hash,
+        now,
+    )
+
+
+def upsert_items_batch(items: list[Item], batch_size: int = 100) -> BatchUpsertResult:
+    """
+    複数の案件を一括 upsert する。
+
+    PostgreSQL では既存レコードの探索（source_item_id → url → content_hash の優先順位、
+    upsert_item と同一のセマンティクス）と書き込みを `batch_size` 件単位でまとめて実行し、
+    1件ごとに発生していた往復（ラウンドトリップ）を大幅に削減する。
+    接続系エラーが起きた場合はバッチ単位で1回だけ再接続・再試行し、それでも失敗するバッチは
+    warning を出して読み飛ばし、全体を止めない。
+
+    SQLite では従来どおり `upsert_item` を1件ずつ呼び出す（ローカルファイルのため
+    ラウンドトリップコストが無視できるほど小さく、バッチ化の恩恵が薄いため）。
+    """
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    result = BatchUpsertResult()
+    if not items:
+        return result
+
+    if get_database_backend() != "postgresql":
+        for item in items:
+            try:
+                _, is_new = upsert_item(item)
+                if is_new:
+                    result.new_count += 1
+                else:
+                    result.updated_count += 1
+            except Exception as e:
+                logger.error(f"DB保存エラー: {item.title[:30]}..., error={e}")
+                result.error_count += 1
+        return result
+
+    for start in range(0, len(items), batch_size):
+        chunk = items[start : start + batch_size]
+        _upsert_postgres_chunk_with_retry(chunk, result)
+
+    return result
+
+
+def _upsert_postgres_chunk_with_retry(chunk: list[Item], result: BatchUpsertResult) -> None:
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    try:
+        import psycopg
+    except ImportError as exc:  # pragma: no cover - PostgreSQL利用時のみ
+        raise RuntimeError("PostgreSQLを使うには psycopg[binary] が必要です") from exc
+
+    for attempt in (1, 2):
+        try:
+            with get_connection() as conn:
+                new_c, updated_c = _upsert_postgres_chunk(conn, chunk)
+                result.new_count += new_c
+                result.updated_count += updated_c
+            return
+        except psycopg.OperationalError as e:
+            # get_connection() は例外発生時に自前でキャッシュ接続を close & 破棄済みのため、
+            # 次の試行では自動的に新しい接続が張られる
+            logger.warning(
+                f"DBバッチ書き込みで接続エラー（試行{attempt}/2、{len(chunk)}件）: {e}"
+            )
+            if attempt == 2:
+                logger.warning(
+                    f"DBバッチ書き込みを断念しスキップします（{len(chunk)}件が未反映）"
+                )
+                result.error_count += len(chunk)
+                return
+        except Exception as e:
+            # 接続エラー以外（データ不整合等）はバッチ全体を失わせず、
+            # 1件ずつのフォールバック処理にダウングレードして被害を局所化する
+            logger.warning(
+                f"DBバッチ書き込みで想定外のエラー、1件ずつにフォールバックします: {e}"
+            )
+            for item in chunk:
+                try:
+                    _, is_new = upsert_item(item)
+                    if is_new:
+                        result.new_count += 1
+                    else:
+                        result.updated_count += 1
+                except Exception as item_exc:
+                    logger.error(f"DB保存エラー: {item.title[:30]}..., error={item_exc}")
+                    result.error_count += 1
+            return
+
+
+def _upsert_postgres_chunk(
+    conn: "PostgresConnection", chunk: list[Item]
+) -> tuple[int, int]:
+    """PostgreSQL向け: 1チャンク分の既存ID探索＋一括update/insertを行う。"""
+    now = _now_utc()
+
+    # --- 既存ID探索（優先順位: source_item_id → url → content_hash） ---
+    existing_by_sid: dict[tuple[str, str], int] = {}
+    sid_pairs = [(it.source, it.source_item_id) for it in chunk if it.source_item_id]
+    if sid_pairs:
+        placeholders = ",".join(["(?,?)"] * len(sid_pairs))
+        flat_params = [v for pair in sid_pairs for v in pair]
+        cursor = conn.execute(
+            f"SELECT id, source, source_item_id FROM items WHERE (source, source_item_id) IN ({placeholders})",  # noqa: S608
+            flat_params,
+        )
+        for row in cursor.fetchall():
+            existing_by_sid[(row["source"], row["source_item_id"])] = row["id"]
+
+    existing_by_url: dict[str, int] = {}
+    urls = list({it.url for it in chunk if it.url})
+    if urls:
+        placeholders = ",".join(["?"] * len(urls))
+        cursor = conn.execute(
+            f"SELECT id, url FROM items WHERE url IN ({placeholders})",  # noqa: S608
+            urls,
+        )
+        for row in cursor.fetchall():
+            existing_by_url[row["url"]] = row["id"]
+
+    existing_by_hash: dict[str, int] = {}
+    hashes = list({it.content_hash for it in chunk if it.content_hash})
+    if hashes:
+        placeholders = ",".join(["?"] * len(hashes))
+        cursor = conn.execute(
+            f"SELECT id, content_hash FROM items WHERE content_hash IN ({placeholders})",  # noqa: S608
+            hashes,
+        )
+        for row in cursor.fetchall():
+            existing_by_hash[row["content_hash"]] = row["id"]
+
+    to_update: list[tuple[int, Item]] = []
+    to_insert: list[Item] = []
+    for item in chunk:
+        existing_id = None
+        if item.source_item_id:
+            existing_id = existing_by_sid.get((item.source, item.source_item_id))
+        if existing_id is None and item.url:
+            existing_id = existing_by_url.get(item.url)
+        if existing_id is None:
+            existing_id = existing_by_hash.get(item.content_hash)
+
+        if existing_id is not None:
+            to_update.append((existing_id, item))
+        else:
+            to_insert.append(item)
+
+    updated_count = 0
+    if to_update:
+        # UPDATE ... FROM (VALUES ...) による一括更新。id 列のみ bigint へキャストすれば
+        # 他列は全て TEXT のため型解決の問題は生じない。
+        value_rows = []
+        flat_params = []
+        for existing_id, item in to_update:
+            value_rows.append("(?::bigint,?,?,?,?,?,?,?,?,?,?,?,?)")
+            flat_params.append(existing_id)
+            flat_params.extend(_item_field_values(item, now))
+        values_sql = ",".join(value_rows)
+        sql = f"""
+            UPDATE items SET
+                source_item_id = v.source_item_id,
+                url = v.url,
+                title = v.title,
+                organization_name = v.organization_name,
+                published_at = v.published_at,
+                deadline_at = v.deadline_at,
+                category = v.category,
+                region = v.region,
+                body = v.body,
+                body_hash = v.body_hash,
+                content_hash = v.content_hash,
+                updated_at = v.updated_at
+            FROM (VALUES {values_sql}) AS v(
+                id, source_item_id, url, title, organization_name,
+                published_at, deadline_at, category, region, body, body_hash,
+                content_hash, updated_at
+            )
+            WHERE items.id = v.id
+        """  # noqa: S608
+        conn.execute(sql, flat_params)
+        updated_count = len(to_update)
+
+    new_count = 0
+    if to_insert:
+        # 同一チャンク内に重複キー（source_item_id/url）を持つ行が万一含まれても
+        # 全体を失敗させないよう ON CONFLICT DO NOTHING を安全弁として付与する。
+        value_rows = []
+        flat_params = []
+        for item in to_insert:
+            value_rows.append("(?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+            flat_params.append(item.source)
+            flat_params.extend(_item_field_values(item, now))
+            flat_params.append(now)  # created_at
+        values_sql = ",".join(value_rows)
+        sql = f"""
+            INSERT INTO items (
+                source, source_item_id, url, title, organization_name,
+                published_at, deadline_at, category, region, body, body_hash,
+                content_hash, updated_at, created_at
+            )
+            VALUES {values_sql}
+            ON CONFLICT DO NOTHING
+        """  # noqa: S608
+        conn.execute(sql, flat_params)
+        new_count = len(to_insert)
+
+    conn.commit()
+    return new_count, updated_count
 
 
 def search_items(
